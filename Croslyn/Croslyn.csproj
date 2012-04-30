@@ -81,8 +81,10 @@
     <Compile Include="Analysis.cs" />
     <Compile Include="CodeAction.cs" />
     <Compile Include="CodeIssueProvider.cs" />
+    <Compile Include="CodeIssues\UnnecessaryBraces.cs" />
+    <Compile Include="CodeIssues\UnnecessaryElse.cs" />
     <Compile Include="Refactorings\InlineLargeGuardedBranches.cs" />
-    <Compile Include="Refactorings\CreateEarlyReturns.cs" />
+    <Compile Include="Refactorings\LopsidedTerminalIfsToEarlyReturnGuards.cs" />
     <Compile Include="Refactorings\RemoveUnusedOperations.cs" />
     <Compile Include="Refactorings\RemoveMethodAndInvocations.cs" />
     <Compile Include="Refactorings\InferNonTrivialConstructor.cs" />

@@ -14,11 +14,11 @@ using Strilbrary.Values;
 
 namespace Croslyn.Refactorings {
     [ExportCodeRefactoringProvider("Croslyn", LanguageNames.CSharp)]
-    class CreateEarlyReturns : ICodeRefactoringProvider {
+    class LopsidedTerminalIfsToEarlyReturnGuards : ICodeRefactoringProvider {
         private readonly ICodeActionEditFactory editFactory;
 
         [ImportingConstructor]
-        public CreateEarlyReturns(ICodeActionEditFactory editFactory) {
+        public LopsidedTerminalIfsToEarlyReturnGuards(ICodeActionEditFactory editFactory) {
             this.editFactory = editFactory;
         }
 
@@ -31,16 +31,16 @@ namespace Croslyn.Refactorings {
             if (desc == null) return null;
 
             return new CodeRefactoring(new[] { new ReadyCodeAction(
-                "Create Early Returns",
+                "Lopsided Terminal Ifs -> Early Return Guards",
                 editFactory,
                 document,
                 p,
-                () => p.ReplaceNodes(p.DescendentNodes().OfType<BlockSyntax>(), (e,a) => CreateEarlyReturns2(a)))});
+                () => p.ReplaceNodes(p.DescendentNodes().OfType<BlockSyntax>(), (e,a) => LopsidedTerminalBranchesToGuardedBranches(a)))});
         }
-        public static BlockSyntax CreateEarlyReturns2(BlockSyntax syntax) {
-            return syntax.With(statements: Syntax.List(syntax.Statements.SelectMany(e => e is IfStatementSyntax ? CreateEarlyReturns2((IfStatementSyntax)e) : new[] { e })));
+        public static BlockSyntax LopsidedTerminalBranchesToGuardedBranches(BlockSyntax syntax) {
+            return syntax.With(statements: Syntax.List(syntax.Statements.SelectMany(e => e is IfStatementSyntax ? LopsidedTerminalBranchesToGuardedBranches((IfStatementSyntax)e) : new[] { e })));
         }
-        public static IEnumerable<StatementSyntax> CreateEarlyReturns2(IfStatementSyntax syntax) {
+        public static IEnumerable<StatementSyntax> LopsidedTerminalBranchesToGuardedBranches(IfStatementSyntax syntax) {
             Contract.Requires(syntax != null);
             Contract.Requires(syntax.Parent is BlockSyntax);
 
@@ -51,19 +51,22 @@ namespace Croslyn.Refactorings {
 
             var trueBloat = syntax.Statement.Bloat();
             var falseBloat = syntax.ElseOpt == null ? 0 : syntax.ElseOpt.Statement.Bloat();
-            if (trueBloat < falseBloat * 2 - 10) 
-                return new[] {
+            if (trueBloat < falseBloat * 2 - 10) {
+                // inline the false branch, guard with the true branch
+                return syntax.ElseOpt.Statement.Statements().Prepend(
                     syntax.With(
                         statement: syntax.Statement.BracedTo(syntax.Statement.Statements().Concat(new[] {allowedJump})),
-                        elseOpt: new Renullable<ElseClauseSyntax>(null))               
-                }.Concat(syntax.ElseOpt.Statement.Statements());
-            if (falseBloat < trueBloat * 2 - 10) 
-                return new[] {
+                        elseOpt: new Renullable<ElseClauseSyntax>(null)));
+            }
+            if (falseBloat < trueBloat * 2 - 10) {
+                // inline the true branch, guard with the false branch
+                return syntax.Statement.Statements().Prepend(
                     syntax.With(
                         condition: syntax.Condition.Inverted(),
                         statement: syntax.ElseOpt == null ? allowedJump : syntax.ElseOpt.Statement.BracedTo(syntax.ElseOpt.Statement.Statements().Concat(new[] {allowedJump})),
-                        elseOpt: new Renullable<ElseClauseSyntax>(null))
-                }.Concat(syntax.Statement.Statements());
+                        elseOpt: new Renullable<ElseClauseSyntax>(null)));
+            }
+
             return new[] { syntax };
         }
     }

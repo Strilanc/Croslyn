@@ -31,16 +31,16 @@ namespace Croslyn.Refactorings {
             if (desc == null) return null;
 
             return new CodeRefactoring(new[] { new ReadyCodeAction(
-                "Inlined Large Guarded Branches",
+                "Inline Large Guarded Branches",
                 editFactory,
                 document,
                 p,
-                () => p.ReplaceNodes(p.DescendentNodes().OfType<BlockSyntax>(), (e,a) => InlineGuardedBranchesIfApplicable(a)))});
+                () => p.ReplaceNodes(p.DescendentNodes().OfType<BlockSyntax>(), (e,a) => InlineLargeGuardedBranches2(a)))});
         }
-        private static BlockSyntax InlineGuardedBranchesIfApplicable(BlockSyntax syntax) {
-            return syntax.With(statements: Syntax.List(syntax.Statements.SelectMany(e => e is IfStatementSyntax ? InlineGuardedBranchesIfApplicable(e as IfStatementSyntax) : new[] { e })));
+        private static BlockSyntax InlineLargeGuardedBranches2(BlockSyntax syntax) {
+            return syntax.With(statements: Syntax.List(syntax.Statements.SelectMany(e => e is IfStatementSyntax ? InlineLargeGuardedBranches2(e as IfStatementSyntax) : new[] { e })));
         }
-        private static IEnumerable<StatementSyntax> InlineGuardedBranchesIfApplicable(IfStatementSyntax syntax) {
+        private static IEnumerable<StatementSyntax> InlineLargeGuardedBranches2(IfStatementSyntax syntax) {
             Contract.Requires(syntax != null);
 
             var trueIsAGuard = syntax.Statement.IsGuaranteedToJumpOut();

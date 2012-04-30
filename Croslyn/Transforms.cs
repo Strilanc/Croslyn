@@ -8,6 +8,7 @@ using Roslyn.Services;
 using Roslyn.Compilers.Common;
 using Strilbrary.Collections;
 using Strilbrary.Values;
+using Roslyn.Services.Editor;
 
 public static class Transforms {
     ///<summary>Returns an expression syntax that is the logical inverse of the given expression syntax.</summary>
@@ -33,6 +34,15 @@ public static class Transforms {
         return Syntax.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression, operand: e.Bracketed());
     }
 
+    public static ICodeAction MakeReplaceStatementWithManyAction(this StatementSyntax oldStatement, IEnumerable<StatementSyntax> newStatements, String desc, ICodeActionEditFactory editFactory, IDocument document) {
+        var statements = newStatements.ToArray();
+        if (statements.Length == 1)
+            return new ReadyCodeAction(desc, editFactory, document, oldStatement, () => statements.Single());
+        var b = oldStatement.Parent as BlockSyntax;
+        if (b != null)
+            return new ReadyCodeAction(desc, editFactory, document, b, () => b.With(statements: b.Statements.WithItemReplacedByMany(oldStatement, statements)));
+        return new ReadyCodeAction(desc, editFactory, document, oldStatement, () => Syntax.Block(Syntax.Token(SyntaxKind.OpenBraceToken), Syntax.List(statements), Syntax.Token(SyntaxKind.CloseBraceToken)));
+    }
     ///<summary>Returns an equivalent expression syntax with brackets added around it, if necessary.</summary>
     public static ExpressionSyntax Bracketed(this ExpressionSyntax e) {
         return e is ParenthesizedExpressionSyntax ? e : Syntax.ParenthesizedExpression(expression: e);
