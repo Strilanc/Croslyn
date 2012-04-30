@@ -1,0 +1,17 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Croslyn", "Croslyn\Croslyn.csproj", "{ED3F6300-708A-4027-8E5E-F3D28D7AD8A3}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Dev|Any CPU = Dev|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{ED3F6300-708A-4027-8E5E-F3D28D7AD8A3}.Dev|Any CPU.ActiveCfg = Dev|Any CPU
+		{ED3F6300-708A-4027-8E5E-F3D28D7AD8A3}.Dev|Any CPU.Build.0 = Dev|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

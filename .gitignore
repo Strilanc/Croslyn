@@ -1,0 +1,12 @@
+Croslyn/bin/*
+Croslyn/obj/*
+*.pfx
+*.snk
+Testing/bin/*
+Testing/obj/*
+TestResults/*
+*.testsettings
+*.suo
+*.ncrunchsolution.user
+*.crunchsolution.cache
+*.vbproj.user
