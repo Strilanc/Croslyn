@@ -83,6 +83,11 @@ public static class Analysis {
     public static Result HasSideEffects(this ExpressionSyntax expression, ISemanticModel model = null) {
         if (expression is LiteralExpressionSyntax) return Result.False;
         if (expression is DefaultExpressionSyntax) return Result.False;
+        if (expression is InvocationExpressionSyntax) {
+            var i = (InvocationExpressionSyntax)expression;
+            if (i.ArgumentList.Arguments.Any(e => e.RefOrOutKeywordOpt != null)) return Result.True;
+            return Enumerable.Max(i.ArgumentList.Arguments.Select(e => e.Expression.HasSideEffects()).Append(i.Expression.HasSideEffects(), Result.Unknown));
+        }
         if (expression is BinaryExpressionSyntax) {
             var b = (BinaryExpressionSyntax)expression;
             var shouldBeSafeOperators = new SyntaxKind[] {
@@ -96,10 +101,34 @@ public static class Analysis {
                 SyntaxKind.LessThanExpression,
                 SyntaxKind.LessThanOrEqualExpression,
                 SyntaxKind.GreaterThanExpression,
-                SyntaxKind.GreaterThanOrEqualExpression
+                SyntaxKind.GreaterThanOrEqualExpression,
+                SyntaxKind.BitwiseAndExpression,
+                SyntaxKind.BitwiseOrExpression,
+                SyntaxKind.BitwiseNotExpression,
+                SyntaxKind.ExclusiveOrExpression,
+                SyntaxKind.LogicalAndExpression,
+                SyntaxKind.LogicalOrExpression,
+                SyntaxKind.LogicalNotExpression,
+                SyntaxKind.CoalesceExpression,
+                SyntaxKind.LeftShiftExpression,
+                SyntaxKind.RightShiftExpression,
             };
-            if (!shouldBeSafeOperators.Contains(b.Kind)) return Result.Unknown;
-            return Result.FalseIfCodeFollowsConventions.Max(b.Left.HasSideEffects().Max(b.Right.HasSideEffects()));
+            var unsafeOperators = new SyntaxKind[] {
+                SyntaxKind.AddAssignExpression,
+                SyntaxKind.AndAssignExpression,
+                SyntaxKind.AssignExpression,
+                SyntaxKind.DivideAssignExpression,
+                SyntaxKind.ExclusiveOrAssignExpression,
+                SyntaxKind.LeftShiftAssignExpression,
+                SyntaxKind.ModuloAssignExpression,
+                SyntaxKind.MultiplyAssignExpression,
+                SyntaxKind.OrAssignExpression,
+                SyntaxKind.RightShiftAssignExpression,
+                SyntaxKind.SubtractAssignExpression,
+            };
+            if (unsafeOperators.Contains(b.Kind)) return Result.True;
+            var op = shouldBeSafeOperators.Contains(b.Kind) ? Result.FalseIfCodeFollowsConventions : Result.Unknown;
+            return Enumerable.Max(new[] { op, b.Left.HasSideEffects(), b.Right.HasSideEffects() });
         }
         if (expression is ParenthesizedExpressionSyntax) {
             return ((ParenthesizedExpressionSyntax)expression).Expression.HasSideEffects();
