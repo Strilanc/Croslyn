@@ -80,6 +80,7 @@
   <ItemGroup>
     <Compile Include="Analysis.cs" />
     <Compile Include="CodeAction.cs" />
+    <Compile Include="CodeIssues\IfToBool.cs" />
     <Compile Include="CodeIssues\ForLoopCouldBeLinqAny.cs" />
     <Compile Include="CodeIssues\UselessStatement.cs" />
     <Compile Include="CodeIssues\UnnecessaryBraces.cs" />
