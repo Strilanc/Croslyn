@@ -31,7 +31,7 @@ namespace Croslyn.Refactorings {
             if (desc == null) return null;
 
             return new CodeRefactoring(new[] { new ReadyCodeAction(
-                "Inline Large Guarded Branches",
+                "Inline Large Guarded Branches in " + desc,
                 editFactory,
                 document,
                 p,

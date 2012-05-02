@@ -28,7 +28,6 @@ namespace Croslyn.CodeIssues {
             var withUnguardedElse = ifStatement.WithUnguardedElse();
             var flipped = ifStatement.Flipped();
             var withUnguardedElseFlip = flipped.WithUnguardedElse();
-            
 
             var b1 = !withUnguardedElse.SequenceEqual(new[] { ifStatement });
             var b2 = !withUnguardedElseFlip.SequenceEqual(new[] { flipped });

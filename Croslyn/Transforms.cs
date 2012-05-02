@@ -132,7 +132,7 @@ public static class Transforms {
         var skipTrue = syntax.Statement.HasSideEffects() <= Analysis.Result.FalseIfCodeFollowsConventions;
 
         // can we get rid of the 'if' usage?
-        var conditionSafe = true || syntax.Condition.HasSideEffects() <= Analysis.Result.FalseIfCodeFollowsConventions;
+        var conditionSafe = syntax.Condition.HasSideEffects() <= Analysis.Result.FalseIfCodeFollowsConventions;
         if (skipTrue && skipFalse && conditionSafe)
             return syntax.Dropped();
         if (skipTrue && skipFalse)

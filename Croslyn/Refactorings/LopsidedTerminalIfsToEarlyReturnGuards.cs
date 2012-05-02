@@ -31,7 +31,7 @@ namespace Croslyn.Refactorings {
             if (desc == null) return null;
 
             return new CodeRefactoring(new[] { new ReadyCodeAction(
-                "Lopsided Terminal Ifs -> Early Return Guards",
+                "Lopsided Terminal Ifs -> Early Return Guards in " + desc,
                 editFactory,
                 document,
                 p,
