@@ -149,4 +149,56 @@ public static class TrivialTransforms {
                              closeBraceToken ?? @this.CloseBraceToken);
         return r == @this ? @this : r;
     }
+
+    public static BlockSyntax Block(this IEnumerable<StatementSyntax> statements) {
+        Contract.Requires(statements != null);
+        return Syntax.Block(statements: Syntax.List(statements));
+    }
+    public static SyntaxList<T> List<T>(this IEnumerable<T> items) where T : SyntaxNode {
+        return Syntax.List(items);
+    }
+    public static SyntaxList<T> List1<T>(this T item) where T : SyntaxNode {
+        return Syntax.List(item);
+    }
+    public static SeparatedSyntaxList<T> SepList1<T>(this T item) where T : SyntaxNode {
+        return Syntax.SeparatedList(item);
+    }
+    public static ArgumentSyntax Arg(this ExpressionSyntax item) {
+        return Syntax.Argument(expression: item);
+    }
+    public static ArgumentListSyntax Args1(this ExpressionSyntax item) {
+        return Syntax.ArgumentList(arguments: item.Arg().SepList1());
+    }
+    public static TypeArgumentListSyntax TypeArgs1(this TypeSyntax syntax) {
+        return Syntax.TypeArgumentList(arguments: Syntax.SeparatedList(syntax));
+    }
+    public static GenericNameSyntax Genericed(this SyntaxToken identifier, TypeSyntax genericType1) {
+        return Syntax.GenericName(identifier, genericType1.TypeArgs1());
+    }
+    public static NullableTypeSyntax Nullable(this TypeSyntax t) {
+        return Syntax.NullableType(t);
+    }
+    public static MemberAccessExpressionSyntax Accessing(this ExpressionSyntax instance, SimpleNameSyntax member) {
+        return Syntax.MemberAccessExpression(SyntaxKind.MemberAccessExpression, instance, name: member);
+    }
+    public static MemberAccessExpressionSyntax Accessing(this ExpressionSyntax instance, String name) {
+        return Syntax.MemberAccessExpression(SyntaxKind.MemberAccessExpression, instance, name: name.AsIdentifier());
+    }
+    public static InvocationExpressionSyntax Invoking(this ExpressionSyntax target, ArgumentListSyntax args = null) {
+        return Syntax.InvocationExpression(target, args ?? Syntax.ArgumentList());
+    }
+    public static SimpleLambdaExpressionSyntax Lambdad(this SyntaxToken parameter, ExpressionSyntax body) {
+        return Syntax.SimpleLambdaExpression(Syntax.Parameter(identifier: parameter), body: body);
+    }
+    public static SimpleNameSyntax AsIdentifier(this String name) {
+        return Syntax.IdentifierName(name);
+    }
+    public static LocalDeclarationStatementSyntax varInit(this SyntaxToken name, ExpressionSyntax value) {
+        return Syntax.LocalDeclarationStatement(declaration: Syntax.VariableDeclaration(
+            Syntax.IdentifierName(Syntax.Token(SyntaxKind.VarKeyword)),
+            Syntax.VariableDeclarator(
+                name,
+                initializerOpt: Syntax.EqualsValueClause(
+                    value: value)).SepList1()));
+    }
 }

@@ -33,46 +33,32 @@ namespace Croslyn.CodeIssues {
             var f = body.First() as IfStatementSyntax;
             if (f == null) return null;
 
-            var trueBranch = Syntax.Block(statements: Syntax.List(f.Statement.Statements().AppendUnlessJumps(body.Skip(1))));
-            var falseBranch = Syntax.Block(statements: Syntax.List((f.ElseOpt == null ? Syntax.Block() : f.ElseOpt.Statement).Statements().AppendUnlessJumps(body.Skip(1))));
+            var trueBranch = f.Statement.Statements().AppendUnlessJumps(body.Skip(1)).Block();
+            var falseBranch = (f.ElseOpt == null ? Syntax.Block() : f.ElseOpt.Statement).Statements().AppendUnlessJumps(body.Skip(1)).Block();
 
             var falseIsEmpty = falseBranch.HasSideEffects(model) <= Analysis.Result.FalseIfCodeFollowsConventions;
             var trueIsEmpty = trueBranch.HasSideEffects(model) <= Analysis.Result.FalseIfCodeFollowsConventions;
             if (falseIsEmpty == trueIsEmpty) return null;
 
             var condition = f.Condition;
-            var action = trueIsEmpty ? falseBranch : trueBranch;
+            var loopBranch = trueIsEmpty ? falseBranch : trueBranch;
+            var branchActions = loopBranch.Statements.Last().IsIntraLoopJump() ? loopBranch.Statements.SkipLast(1) : loopBranch.Statements;
+            if (branchActions.Any(e => e.HasTopLevelIntraLoopJumps())) return null;
 
-            var reads = action.DescendentNodes()
+            var reads = loopBranch.DescendentNodes()
                         .OfType<IdentifierNameSyntax>()
                         .Where(e => e.Identifier.ValueText == forLoop.Identifier.ValueText)
                         .ToArray();
-            var idem = action.IsLoopVarFirstpotent(reads, model);
-            var fidem = action.IsLoopVarLastpotent(reads, model);
-            if (action.Statements.Last().IsIntraLoopJump()) {
-                action = action.With(statements: Syntax.List(action.Statements.SkipLast(1)));
-            }
-            if (action.HasTopLevelIntraLoopJumps()) return null;
-            reads = action.DescendentNodes()
-                    .OfType<IdentifierNameSyntax>()
-                    .Where(e => e.Identifier.ValueText == forLoop.Identifier.ValueText)
-                    .ToArray();
+            var idem = loopBranch.IsLoopVarFirstpotent(reads, model);
+            var fidem = loopBranch.IsLoopVarLastpotent(reads, model);
             var chooseFirstOverLast = (int)idem >= (int)fidem;
             
             StatementSyntax equivalentLinqQuery;
             if (reads.Length == 0) {
                 if (idem < Analysis.Result.TrueIfCodeFollowsConventions) return null;
                 equivalentLinqQuery = Syntax.IfStatement(
-                    condition: Syntax.InvocationExpression(
-                        expression: Syntax.MemberAccessExpression(SyntaxKind.MemberAccessExpression,
-                            expression: forLoop.Expression,
-                            name: Syntax.IdentifierName("Any")),
-                        argumentList: Syntax.ArgumentList(
-                            arguments: Syntax.SeparatedList(Syntax.Argument(
-                                expression: Syntax.SimpleLambdaExpression(
-                                    parameter: Syntax.Parameter(identifier: forLoop.Identifier),
-                                    body: condition))))),
-                    statement: action);
+                    condition: forLoop.Expression.Accessing("Any").Invoking(forLoop.Identifier.Lambdad(condition).Args1()),
+                    statement: branchActions.Block());
                 
                 var r = new ReadyCodeAction(
                     "for(x){if(y){z}} -> if(x.Any(y)){z}",
@@ -89,59 +75,26 @@ namespace Croslyn.CodeIssues {
                 var loopVar = model.AnalyzeRegionDataFlow(forLoop.Span).ReadInside.Single(e => e.Name == forLoop.Identifier.ValueText);
                 var loopVarType = ((LocalSymbol)loopVar).Type;
 
-                ExpressionSyntax wrappedQuery;
-                Func<IdentifierNameSyntax, ExpressionSyntax> unwrapper;
                 var localVarName = Syntax.Identifier("_" + forLoop.Identifier.ValueText);
                 var localVarAccess = Syntax.IdentifierName(Syntax.Identifier("_" + forLoop.Identifier.ValueText));
+
+                ExpressionSyntax wrappedQuery;
+                Func<IdentifierNameSyntax, ExpressionSyntax> unwrapper;
                 if (loopVarType.IsReferenceType || loopVarType.SpecialType == SpecialType.System_Nullable_T) {
-                    var wrappedRead = Syntax.InvocationExpression(
-                        Syntax.MemberAccessExpression(SyntaxKind.MemberAccessExpression, 
-                            Syntax.IdentifierName("Tuple"), 
-                            name: Syntax.IdentifierName("Create")),
-                        Syntax.ArgumentList(arguments: Syntax.SeparatedList(Syntax.Argument(expression: reads.First()))));
-                    wrappedQuery = Syntax.InvocationExpression(
-                        expression: Syntax.MemberAccessExpression(SyntaxKind.MemberAccessExpression,
-                            expression: forLoop.Expression,
-                            name: Syntax.IdentifierName("Select")),
-                        argumentList: Syntax.ArgumentList(
-                            arguments: Syntax.SeparatedList(Syntax.Argument(
-                                expression: Syntax.SimpleLambdaExpression(
-                                    parameter: Syntax.Parameter(identifier: forLoop.Identifier),
-                                    body: wrappedRead)))));
-                    unwrapper = e => Syntax.MemberAccessExpression(SyntaxKind.MemberAccessExpression,
-                        expression: localVarAccess,
-                        name: Syntax.IdentifierName("Item1"));
+                    var wrappedRead = Syntax.IdentifierName("Tuple").Accessing("Create").Invoking(reads.First().Args1());
+                    wrappedQuery = forLoop.Expression.Accessing("Select").Invoking(forLoop.Identifier.Lambdad(wrappedRead).Args1());
+                    unwrapper = e => localVarAccess.Accessing("Item1");
                 } else {
-                    wrappedQuery = Syntax.InvocationExpression(
-                        expression: Syntax.MemberAccessExpression(SyntaxKind.MemberAccessExpression,
-                            expression: forLoop.Expression,
-                            name: Syntax.GenericName(
-                                Syntax.Identifier("Cast"),
-                                Syntax.TypeArgumentList(arguments: Syntax.SeparatedList<TypeSyntax>(Syntax.NullableType(Syntax.IdentifierName(loopVarType.Name)))))),
-                        argumentList: Syntax.ArgumentList());
-                    unwrapper = e => Syntax.MemberAccessExpression(SyntaxKind.MemberAccessExpression,
-                        expression: localVarAccess,
-                        name: Syntax.IdentifierName("Value"));
+                    wrappedQuery = forLoop.Expression.Accessing(Syntax.Identifier("Cast").Genericed(loopVarType.Name.AsIdentifier().Nullable())).Invoking();
+                    unwrapper = e => localVarAccess.Accessing("Value");
                 }
-                var query = Syntax.InvocationExpression(
-                    expression: Syntax.MemberAccessExpression(SyntaxKind.MemberAccessExpression,
-                        expression: wrappedQuery,
-                        name: Syntax.IdentifierName(chooseFirstOverLast ? "FirstOrDefault" : "LastOrDefault")),
-                    argumentList: Syntax.ArgumentList(
-                        arguments: Syntax.SeparatedList(Syntax.Argument(
-                            expression: Syntax.SimpleLambdaExpression(
-                                parameter: Syntax.Parameter(identifier: forLoop.Identifier),
-                                body: condition)))));
-                var tryAssignIfDo = Syntax.Block(statements: Syntax.List(new StatementSyntax[] {
-                    Syntax.LocalDeclarationStatement(declaration: Syntax.VariableDeclaration(
-                        Syntax.IdentifierName(Syntax.Token(SyntaxKind.VarKeyword)),
-                        Syntax.SeparatedList(Syntax.VariableDeclarator(
-                            localVarName,
-                            initializerOpt: Syntax.EqualsValueClause(
-                                value: query))))),
+                var query = wrappedQuery.Accessing(chooseFirstOverLast ? "FirstOrDefault" : "LastOrDefault")
+                                        .Invoking(forLoop.Identifier.Lambdad(condition).Args1());
+                var tryAssignIfDo = new StatementSyntax[] {
+                    localVarName.varInit(query),
                     Syntax.IfStatement(
                         condition: Syntax.BinaryExpression(SyntaxKind.NotEqualsExpression, localVarAccess, Syntax.Token(SyntaxKind.ExclamationEqualsToken), Syntax.LiteralExpression(SyntaxKind.NullLiteralExpression)),
-                        statement: action.ReplaceNodes(reads, (e,a) => unwrapper(a)))}));
+                        statement: branchActions.Select(x => x.ReplaceNodes(reads, (e,a) => unwrapper(a))).Block())}.Block();
                 var r = new ReadyCodeAction(
                     "for(x){if(y){z}} -> {single?(x?);if(y){z}}",
                     editFactory,
