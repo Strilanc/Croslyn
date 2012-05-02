@@ -8,6 +8,8 @@ using Roslyn.Services;
 using Roslyn.Compilers.Common;
 using Strilbrary.Collections;
 using Strilbrary.Values;
+using Roslyn.Services.Editor;
+using Roslyn.Compilers;
 
 public static class TrivialTransforms {
     public static TypeDeclarationSyntax With(this TypeDeclarationSyntax @this,
@@ -193,10 +195,10 @@ public static class TrivialTransforms {
     public static SimpleNameSyntax AsIdentifier(this String name) {
         return Syntax.IdentifierName(name);
     }
-    public static LocalDeclarationStatementSyntax varInit(this SimpleNameSyntax name, ExpressionSyntax value) {
-        return name.Identifier.varInit(value);
+    public static LocalDeclarationStatementSyntax CarInit(this SimpleNameSyntax name, ExpressionSyntax value) {
+        return name.Identifier.VarInit(value);
     }
-    public static LocalDeclarationStatementSyntax varInit(this SyntaxToken name, ExpressionSyntax value) {
+    public static LocalDeclarationStatementSyntax VarInit(this SyntaxToken name, ExpressionSyntax value) {
         return Syntax.LocalDeclarationStatement(declaration: Syntax.VariableDeclaration(
             Syntax.IdentifierName(Syntax.Token(SyntaxKind.VarKeyword)),
             Syntax.VariableDeclarator(
@@ -204,7 +206,65 @@ public static class TrivialTransforms {
                 initializerOpt: Syntax.EqualsValueClause(
                     value: value)).SepList1()));
     }
-    public static ExpressionStatementSyntax varAssign(this ExpressionSyntax lhs, ExpressionSyntax value) {
+    public static ExpressionStatementSyntax CarAssign(this ExpressionSyntax lhs, ExpressionSyntax value) {
         return Syntax.ExpressionStatement(Syntax.BinaryExpression(SyntaxKind.AssignExpression, lhs, Syntax.Token(SyntaxKind.EqualsToken), value));
+    }
+    public static IfStatementSyntax IfThen(this ExpressionSyntax condition, StatementSyntax conditionalAction, StatementSyntax alternativeAction = null) {
+        return Syntax.IfStatement(
+            condition: condition, 
+            statement: conditionalAction, 
+            elseOpt: alternativeAction == null ? null : Syntax.ElseClause(statement: alternativeAction));
+    }
+    public static ExpressionSyntax BOpNotEquals(this ExpressionSyntax lhs, ExpressionSyntax rhs) {
+        return Syntax.BinaryExpression(SyntaxKind.NotEqualsExpression, lhs, Syntax.Token(SyntaxKind.ExclamationEqualsToken), rhs);
+    }
+    public static ExpressionSyntax BOpEquals(this ExpressionSyntax lhs, ExpressionSyntax rhs) {
+        return Syntax.BinaryExpression(SyntaxKind.EqualsExpression, lhs, Syntax.Token(SyntaxKind.EqualsEqualsToken), rhs);
+    }
+    public static CodeIssue[] CodeIssues1(this ICodeAction action, CodeIssue.Severity severity, TextSpan span, String description) {
+        Contract.Requires(action != null);
+        return new[] { new CodeIssue(severity, span, description, new[] { action }) };
+    }
+    public static BinaryExpressionSyntax With(this BinaryExpressionSyntax syntax,
+                                              ExpressionSyntax left = null,
+                                              SyntaxToken? operatorToken = null,
+                                              ExpressionSyntax right = null) {
+        return syntax.Update(left ?? syntax.Left, operatorToken ?? syntax.OperatorToken, right ?? syntax.Right);
+    }
+    public static ExpressionStatementSyntax With(this ExpressionStatementSyntax syntax,
+                                                 ExpressionSyntax expression = null,
+                                                 SyntaxToken? semicolonToken = null) {
+        return syntax.Update(expression ?? syntax.Expression, semicolonToken ?? syntax.SemicolonToken);
+    }
+    public static VariableDeclarationSyntax With(this VariableDeclarationSyntax syntax,
+                                                 TypeSyntax type = null,
+                                                 SeparatedSyntaxList<VariableDeclaratorSyntax>? variables = null) {
+        return syntax.Update(type ?? syntax.Type, variables ?? syntax.Variables);
+    }
+    public static LocalDeclarationStatementSyntax With(this LocalDeclarationStatementSyntax syntax,
+                                                       SyntaxTokenList? modifiers = null,
+                                                       VariableDeclarationSyntax declaration = null,
+                                                       SyntaxToken? semicolonToken = null) {
+        return syntax.Update(modifiers ?? syntax.Modifiers, declaration ?? syntax.Declaration, semicolonToken ?? syntax.SemicolonToken);
+    }
+    public static VariableDeclaratorSyntax With(this VariableDeclaratorSyntax syntax,
+                                                SyntaxToken? identifier = null,
+                                                Renullable<BracketedArgumentListSyntax> argumentListOpt = null,
+                                                Renullable<EqualsValueClauseSyntax> initializerOpt = null) {
+        return syntax.Update(identifier ?? syntax.Identifier, 
+                             argumentListOpt == null ? syntax.ArgumentListOpt : argumentListOpt.Value, 
+                             initializerOpt == null ? syntax.InitializerOpt : initializerOpt.Value);
+    }
+    public static StatementSyntax TryWithNewRightHandSideOfAssignmentOrSingleInit(this StatementSyntax syntax, ExpressionSyntax rhs) {
+        if (syntax.IsAssignment()) {
+            var s = (ExpressionStatementSyntax)syntax;
+            var b = (BinaryExpressionSyntax)s.Expression;
+            return s.With(expression: b.With(right: rhs));
+        }
+        if (syntax.IsSingleInitialization()) {
+            var d = (LocalDeclarationStatementSyntax)syntax;
+            return d.With(declaration: d.Declaration.With(variables: Syntax.SeparatedList(d.Declaration.Variables.Single().With(initializerOpt: Syntax.EqualsValueClause(value: rhs)))));
+        }
+        return null;
     }
 }

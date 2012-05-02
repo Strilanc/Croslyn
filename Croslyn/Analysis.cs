@@ -15,6 +15,15 @@ public static class Analysis {
         return e is BlockSyntax ? ((BlockSyntax)e).Statements.ToArray() : new[] { e };
     }
 
+    public static IEnumerable<IdentifierNameSyntax> ReadsOfLocalVariable(this SyntaxNode scope, IdentifierNameSyntax localVar) {
+        return scope.ReadsOfLocalVariable(localVar);
+    }
+    public static IEnumerable<IdentifierNameSyntax> ReadsOfLocalVariable(this SyntaxNode scope, SyntaxToken localVar) {
+        return scope.DescendentNodes()
+               .OfType<IdentifierNameSyntax>()
+               .Where(e => e.Identifier.ValueText == localVar.ValueText);
+    }
+
     public static String TryGetCodeBlockOrAreaDescription(this SyntaxNode e) {
         if (e is ClassDeclarationSyntax) return "Class";
         if (e is MethodDeclarationSyntax) return ((MethodDeclarationSyntax)e).BodyOpt == null ? null : "Method";
@@ -322,5 +331,34 @@ public static class Analysis {
     }
     public static bool IsStatic(this PropertyDeclarationSyntax syntax) {
         return syntax.Modifiers.Any(e => e.Kind == SyntaxKind.StaticKeyword);
+    }
+
+    public static bool IsAssignment(this StatementSyntax syntax) {
+        var b = syntax as ExpressionStatementSyntax;
+        if (b == null) return false;
+        return b.Kind == SyntaxKind.AssignExpression;
+    }
+    public static bool IsSingleInitialization(this StatementSyntax syntax) {
+        var b = syntax as LocalDeclarationStatementSyntax;
+        if (b == null) return false;
+        return b.Declaration.Variables.Count == 1
+            && b.Declaration.Variables.Single().InitializerOpt != null;
+    }
+    public static bool IsAssignmentOrSingleInitialization(this StatementSyntax syntax) {
+        return syntax is LocalDeclarationStatementSyntax || syntax.IsAssignment();
+    }
+    public static ExpressionSyntax TryGetRightHandSideOfAssignmentOrSingleInit(this StatementSyntax syntax) {
+        if (syntax.IsAssignment()) 
+            return ((BinaryExpressionSyntax)((ExpressionStatementSyntax)syntax).Expression).Right;
+        if (syntax.IsSingleInitialization()) 
+            return ((LocalDeclarationStatementSyntax)syntax).Declaration.Variables.Single().InitializerOpt.Value;
+        return null;
+    }
+    public static ExpressionSyntax TryGetLeftHandSideOfAssignmentOrSingleInit(this StatementSyntax syntax) {
+        if (syntax.IsAssignment())
+            return ((BinaryExpressionSyntax)((ExpressionStatementSyntax)syntax).Expression).Left;
+        if (syntax.IsSingleInitialization())
+            return Syntax.IdentifierName(((LocalDeclarationStatementSyntax)syntax).Declaration.Variables.Single().Identifier);
+        return null;
     }
 }

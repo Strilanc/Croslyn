@@ -107,11 +107,11 @@ namespace Croslyn.CodeIssues {
                 var canFoldIntoAlternativeAssignment = isMatchingAssignment(alternativeStatement);
 
                 if (canFoldIntoAlternativeAssignment) {
-                    r = new ReadyCodeAction("Fold into expression", editFactory, document, ifNode, () => target.varAssign(cond));
+                    r = new ReadyCodeAction("Fold into expression", editFactory, document, ifNode, () => target.CarAssign(cond));
                 } else if (canFoldIntoPreceedingDeclaration || canFoldIntoPreceedingAssignment) {
                     r = new ReadyCodeAction("Fold into preceeding expression", editFactory, document, parentBlock, () => parentBlock.With(statements: 
                             parentBlock.Statements.TakeWhile(e => e != preceedingStatement)
-                            .Append(canFoldIntoPreceedingDeclaration ? (StatementSyntax)target.varInit(cond) : target.varAssign(cond))
+                            .Append(canFoldIntoPreceedingDeclaration ? (StatementSyntax)target.CarInit(cond) : target.CarAssign(cond))
                             .Concat(parentBlock.Statements.SkipWhile(e => e != preceedingStatement).Skip(2))
                             .List()));
                 }
