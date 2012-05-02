@@ -67,7 +67,7 @@ namespace Croslyn.CodeIssues {
                     forLoop,
                     () => equivalentLinqQuery);
                 return new[] { 
-                    new CodeIssue(CodeIssue.Severity.Warning, forLoop.ForEachKeyword.Span, "Loop simplifies to If.", new[] { r })
+                    new CodeIssue(CodeIssue.Severity.Warning, forLoop.ForEachKeyword.Span, "Loop can be simplified by using a Linq query.", new[] { r })
                 };
             } else {
                 if (Enumerable.Max(new[] { idem, fidem }) < Analysis.Result.TrueIfCodeFollowsConventions) return null;
@@ -75,34 +75,35 @@ namespace Croslyn.CodeIssues {
                 var loopVar = model.AnalyzeRegionDataFlow(forLoop.Span).ReadInside.Single(e => e.Name == forLoop.Identifier.ValueText);
                 var loopVarType = ((LocalSymbol)loopVar).Type;
 
-                var localVarName = Syntax.Identifier("_" + forLoop.Identifier.ValueText);
-                var localVarAccess = Syntax.IdentifierName(Syntax.Identifier("_" + forLoop.Identifier.ValueText));
-
-                ExpressionSyntax wrappedQuery;
-                Func<IdentifierNameSyntax, ExpressionSyntax> unwrapper;
+                ExpressionSyntax nullableQuery;
+                Func<IdentifierNameSyntax, ExpressionSyntax> unullGetter;
                 if (loopVarType.IsReferenceType || loopVarType.SpecialType == SpecialType.System_Nullable_T) {
                     var wrappedRead = Syntax.IdentifierName("Tuple").Accessing("Create").Invoking(reads.First().Args1());
-                    wrappedQuery = forLoop.Expression.Accessing("Select").Invoking(forLoop.Identifier.Lambdad(wrappedRead).Args1());
-                    unwrapper = e => localVarAccess.Accessing("Item1");
+                    nullableQuery = forLoop.Expression.Accessing("Select").Invoking(forLoop.Identifier.Lambdad(wrappedRead).Args1());
+                    unullGetter = e => e.Accessing("Item1");
                 } else {
-                    wrappedQuery = forLoop.Expression.Accessing(Syntax.Identifier("Cast").Genericed(loopVarType.Name.AsIdentifier().Nullable())).Invoking();
-                    unwrapper = e => localVarAccess.Accessing("Value");
+                    nullableQuery = forLoop.Expression.Accessing(Syntax.Identifier("Cast").Genericed(loopVarType.Name.AsIdentifier().Nullable())).Invoking();
+                    unullGetter = e => e.Accessing("Value");
                 }
-                var query = wrappedQuery.Accessing(chooseFirstOverLast ? "FirstOrDefault" : "LastOrDefault")
-                                        .Invoking(forLoop.Identifier.Lambdad(condition).Args1());
-                var tryAssignIfDo = new StatementSyntax[] {
-                    localVarName.varInit(query),
+                var condReads = condition.DescendentNodes()
+                                .OfType<IdentifierNameSyntax>()
+                                .Where(e => e.Identifier.ValueText == forLoop.Identifier.ValueText);
+                var unwrappedCond = condition.ReplaceNodes(condReads, (e, a) => unullGetter(a));
+
+                var queryTypeDesc = chooseFirstOverLast ? "First?" : "Last?";
+                var query = nullableQuery.Accessing(chooseFirstOverLast ? "FirstOrDefault" : "LastOrDefault")
+                                         .Invoking(forLoop.Identifier.Lambdad(unwrappedCond).Args1());
+                
+                var tempNullableLocalName = Syntax.Identifier("_" + forLoop.Identifier.ValueText);
+                var tempNullableLocalGet = Syntax.IdentifierName(tempNullableLocalName);
+                var queryCheckDo = new StatementSyntax[] {
+                    tempNullableLocalName.varInit(query),
                     Syntax.IfStatement(
-                        condition: Syntax.BinaryExpression(SyntaxKind.NotEqualsExpression, localVarAccess, Syntax.Token(SyntaxKind.ExclamationEqualsToken), Syntax.LiteralExpression(SyntaxKind.NullLiteralExpression)),
-                        statement: branchActions.Select(x => x.ReplaceNodes(reads, (e,a) => unwrapper(a))).Block())}.Block();
-                var r = new ReadyCodeAction(
-                    "for(x){if(y){z}} -> {single?(x?);if(y){z}}",
-                    editFactory,
-                    document,
-                    forLoop,
-                    () => tryAssignIfDo);
+                        condition: Syntax.BinaryExpression(SyntaxKind.NotEqualsExpression, tempNullableLocalGet, Syntax.Token(SyntaxKind.ExclamationEqualsToken), Syntax.LiteralExpression(SyntaxKind.NullLiteralExpression)),
+                        statement: branchActions.Prepend(forLoop.Identifier.varInit(unullGetter(tempNullableLocalGet))).Block())};
+                var r = forLoop.MakeReplaceStatementWithManyAction(queryCheckDo, "for(x){if(y){z}} -> if(x." + queryTypeDesc + "(y)){z}", editFactory, document);
                 return new[] { 
-                    new CodeIssue(CodeIssue.Severity.Warning, forLoop.ForEachKeyword.Span, "Loop simplifies to If.", new[] { r })
+                    new CodeIssue(CodeIssue.Severity.Warning, forLoop.ForEachKeyword.Span, "Loop can be simplified by using a Linq query and a temporary local.", new[] { r })
                 };
             }
         }
