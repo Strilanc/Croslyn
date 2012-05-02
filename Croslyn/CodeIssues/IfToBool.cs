@@ -26,105 +26,100 @@ namespace Croslyn.CodeIssues {
             var model = document.TryGetSemanticModel();
             if (model == null) return null;
 
-            var ifBlock = (IfStatementSyntax)node;
-            if (ifBlock.Statement.Statements().Count() != 1) return null;
-            if (ifBlock.ElseOpt != null && ifBlock.ElseOpt.Statement.Statements().Count() != 1) return null;
-            var block = ifBlock.Parent as BlockSyntax;
-            if (block == null) return null;
-            var trueBranch = ifBlock.Statement.Statements().Single();
+            var ifNode = (IfStatementSyntax)node;
+            if (ifNode.Statement.Statements().Count() != 1) return null;
+            if (ifNode.ElseOpt != null && ifNode.ElseOpt.Statement.Statements().Count() != 1) return null;
+            var parentBlock = ifNode.Parent as BlockSyntax;
+            if (parentBlock == null) return null;
+            var conditionalStatement = ifNode.Statement.Statements().Single();
 
-            bool invertCondition;
-
-            StatementSyntax falseNext;
-            if (ifBlock.ElseOpt != null) {
-                falseNext = ifBlock.ElseOpt.Statement;
-            } else {
-                falseNext = block.Statements.SkipWhile(e => e != ifBlock).Skip(1).FirstOrDefault();
-            }
-            if (falseNext == null || falseNext.Statements().Count() != 1) return null;
-            var falseSingle = falseNext.Statements().Single();
-
-            if (trueBranch is ReturnStatementSyntax) {
-                var ret = (ReturnStatementSyntax)trueBranch;
+            ICodeAction r = null;
+            if (conditionalStatement is ReturnStatementSyntax) {
+                var ret = (ReturnStatementSyntax)conditionalStatement;
                 if (ret.ExpressionOpt == null) return null;
                 var isTrue = ret.ExpressionOpt.Kind == SyntaxKind.TrueLiteralExpression;
                 var isFalse = ret.ExpressionOpt.Kind == SyntaxKind.FalseLiteralExpression;
                 if (!isTrue && !isFalse) return null;
-                invertCondition = isFalse;
+                var invertCondition = isFalse;
+                var cond = invertCondition ? ifNode.Condition.Inverted() : ifNode.Condition;
+                var oppKind = invertCondition ? SyntaxKind.TrueLiteralExpression : SyntaxKind.FalseLiteralExpression;
 
-                var fret = falseSingle as ReturnStatementSyntax;
-                if (fret == null) return null;
-                if (fret.ExpressionOpt.Kind != (isTrue ? SyntaxKind.FalseLiteralExpression : SyntaxKind.TrueLiteralExpression)) return null;
+                var alternativeNextStatementBlock = ifNode.ElseOpt != null
+                                                  ? ifNode.ElseOpt.Statement
+                                                  : parentBlock.Statements.SkipWhile(e => e != ifNode).Skip(1).FirstOrDefault();
+                if (alternativeNextStatementBlock == null || alternativeNextStatementBlock.Statements().Count() != 1) return null;
+                var alternativeReturn = alternativeNextStatementBlock.Statements().Single() as ReturnStatementSyntax;
+                if (alternativeReturn == null) return null;
+                if (alternativeReturn.ExpressionOpt.Kind != oppKind) return null;
 
-                var cond = isTrue ? ifBlock.Condition : ifBlock.Condition.Inverted();
-                var ns = Syntax.ReturnStatement(expressionOpt: cond);
-                var pre = block.Statements.TakeWhile(e => e != ifBlock);
-                var post = block.Statements.SkipWhile(e => e != ifBlock).SkipWhile(e => e == ifBlock || e == falseNext);
-                var nb = block.With(statements: pre.Append(ns).Concat(post).List());
-                ICodeAction r;
-                if (ifBlock.ElseOpt != null)
-                    r = new ReadyCodeAction("If to bool", editFactory, document, ifBlock, () => ns);
-                else
-                    r = new ReadyCodeAction("If to bool", editFactory, document, block, () => nb);
-                return new CodeIssue[] {
-                    new CodeIssue(CodeIssue.Severity.Warning, ifBlock.IfKeyword.Span, new[] {r})
-                };
+                var foldedReturn = Syntax.ReturnStatement(expressionOpt: cond);
+                if (ifNode.ElseOpt != null) {
+                    r = new ReadyCodeAction("Fold into return condition", editFactory, document, ifNode, () => foldedReturn);
+                } else {
+                    r = new ReadyCodeAction("If to bool", editFactory, document, parentBlock, () => parentBlock.With(statements:
+                            parentBlock.Statements.TakeWhile(e => e != ifNode)
+                            .Append(foldedReturn)
+                            .Concat(parentBlock.Statements.SkipWhile(e => e != ifNode).SkipWhile(e => e == ifNode || e == alternativeNextStatementBlock))
+                            .List()));
+                }
             }
-            if (trueBranch is ExpressionStatementSyntax && ((ExpressionStatementSyntax)trueBranch).Expression.Kind == SyntaxKind.AssignExpression) {
-                var bet = (BinaryExpressionSyntax)((ExpressionStatementSyntax)trueBranch).Expression;
-                var net = bet.Left as IdentifierNameSyntax;
-                if (net == null) return null;
-                var isTrue = bet.Right.Kind == SyntaxKind.TrueLiteralExpression;
-                var isFalse = bet.Right.Kind == SyntaxKind.FalseLiteralExpression;
-                invertCondition = isFalse;
+            if (conditionalStatement is ExpressionStatementSyntax && ((ExpressionStatementSyntax)conditionalStatement).Expression.Kind == SyntaxKind.AssignExpression) {
+                var alternativeStatement = ifNode.ElseOpt != null && ifNode.ElseOpt.Statement.Statements().Count() == 1
+                                         ? ifNode.ElseOpt.Statement.Statements().Single() 
+                                         : null;
+
+                var binAssign = (BinaryExpressionSyntax)((ExpressionStatementSyntax)conditionalStatement).Expression;
+                var target = binAssign.Left as IdentifierNameSyntax;
+                if (target == null) return null;
+                var result = binAssign.Right;
+                var isTrue = result.Kind == SyntaxKind.TrueLiteralExpression;
+                var isFalse = result.Kind == SyntaxKind.FalseLiteralExpression;
                 if (!isTrue && !isFalse) return null;
+                var invertCondition = isFalse;
+                var cond = invertCondition ? ifNode.Condition.Inverted() : ifNode.Condition;
+                var oppKind = invertCondition ? SyntaxKind.TrueLiteralExpression : SyntaxKind.FalseLiteralExpression;
 
-                var pre = block.Statements.TakeWhile(e => e != ifBlock).LastOrDefault();
-                if (pre != null && pre.Statements().Count() == 1) pre = pre.Statements().Single();
-                var doPostAssign = false;
-                var doPreDecl = false;
-                var doPreAssign = false;
-                if (pre is LocalDeclarationStatementSyntax) {
-                    var x = (LocalDeclarationStatementSyntax)pre;
-                    if (x.Declaration.Variables.Count() == 1) {
-                        var v = x.Declaration.Variables.Single();
-                        if (v.InitializerOpt != null && v.Identifier.ValueText == net.PlainName && v.InitializerOpt.Value.Kind == (isTrue ? SyntaxKind.FalseLiteralExpression : SyntaxKind.TrueLiteralExpression)) {
-                            doPreDecl = true;
-                        }
-                    }
-                } else if (pre is ExpressionStatementSyntax) {
-                    if (pre is ExpressionStatementSyntax && ((ExpressionStatementSyntax)pre).Expression.Kind == SyntaxKind.AssignExpression) {
-                        var fret2 = (BinaryExpressionSyntax)((ExpressionStatementSyntax)pre).Expression;
-                        doPreAssign = fret2.Left is IdentifierNameSyntax
-                                      && net.PlainName == ((IdentifierNameSyntax)fret2.Left).PlainName
-                                      && fret2.Right.Kind == (isTrue ? SyntaxKind.FalseLiteralExpression : SyntaxKind.TrueLiteralExpression);
-                    }
-                }
-                if (falseSingle is ExpressionStatementSyntax && ((ExpressionStatementSyntax)falseSingle).Expression.Kind == SyntaxKind.AssignExpression) {
-                    var fret2 = (BinaryExpressionSyntax)((ExpressionStatementSyntax)falseSingle).Expression;
-                    doPostAssign = fret2.Left is IdentifierNameSyntax
-                                   && net.PlainName == ((IdentifierNameSyntax)fret2.Left).PlainName
-                                   && fret2.Right.Kind == (isTrue ? SyntaxKind.FalseLiteralExpression : SyntaxKind.TrueLiteralExpression);
-                }
-                if (!doPostAssign && !doPreDecl && !doPreAssign) return null;
+                var preceedingStatement = parentBlock.Statements.TakeWhile(e => e != ifNode).LastOrDefault();
+                if (preceedingStatement is BlockSyntax) preceedingStatement = null;
 
-                var cond = invertCondition ? ifBlock.Condition.Inverted() : ifBlock.Condition;
-                var ns = doPreDecl 
-                         ? (StatementSyntax)Syntax.Identifier(net.PlainName).varInit(cond)
-                         : Syntax.ExpressionStatement(Syntax.BinaryExpression(SyntaxKind.AssignExpression, net, Syntax.Token(SyntaxKind.EqualsToken), cond));
-                var prex = block.Statements.TakeWhile(e => e != ifBlock && (doPostAssign || e != pre));
-                var post = block.Statements.SkipWhile(e => e != ifBlock && (doPostAssign || e != pre)).SkipWhile(e => e == pre || e == ifBlock || e == falseNext);
-                var nb = block.With(statements: prex.Append(ns).Concat(post).List());
-                ICodeAction r;
-                if (ifBlock.ElseOpt != null)
-                    r = new ReadyCodeAction("If to bool", editFactory, document, ifBlock, () => ns);
-                else
-                    r = new ReadyCodeAction("If to bool", editFactory, document, block, () => nb);
-                return new CodeIssue[] {
-                    new CodeIssue(CodeIssue.Severity.Warning, ifBlock.IfKeyword.Span, new[] {r})
+                Func<StatementSyntax, bool> isMatchingAssignment = s => {
+                    var se = s as ExpressionStatementSyntax;
+                    if (se == null) return false;
+                    if (se.Expression.Kind != SyntaxKind.AssignExpression) return false;
+                    var b = (BinaryExpressionSyntax)se.Expression;
+                    var lhs = b.Left as IdentifierNameSyntax;
+                    return lhs != null
+                        && lhs.PlainName == target.PlainName
+                        && b.Right.Kind == oppKind;
                 };
+                Func<StatementSyntax, bool> isMatchingDeclaration = s => {
+                    var sd = s as LocalDeclarationStatementSyntax;
+                    if (sd == null) return false;
+                    if (sd.Declaration.Variables.Count() != 1) return false;
+                    var v = sd.Declaration.Variables.Single();
+                    return v.InitializerOpt != null
+                        && v.Identifier.ValueText == target.PlainName
+                        && v.InitializerOpt.Value.Kind == oppKind;
+                };
+
+                var canFoldIntoPreceedingDeclaration = isMatchingDeclaration(preceedingStatement);
+                var canFoldIntoPreceedingAssignment = isMatchingAssignment(preceedingStatement);
+                var canFoldIntoAlternativeAssignment = isMatchingAssignment(alternativeStatement);
+
+                if (canFoldIntoAlternativeAssignment) {
+                    r = new ReadyCodeAction("Fold into expression", editFactory, document, ifNode, () => target.varAssign(cond));
+                } else if (canFoldIntoPreceedingDeclaration || canFoldIntoPreceedingAssignment) {
+                    r = new ReadyCodeAction("Fold into preceeding expression", editFactory, document, parentBlock, () => parentBlock.With(statements: 
+                            parentBlock.Statements.TakeWhile(e => e != preceedingStatement)
+                            .Append(canFoldIntoPreceedingDeclaration ? (StatementSyntax)target.varInit(cond) : target.varAssign(cond))
+                            .Concat(parentBlock.Statements.SkipWhile(e => e != preceedingStatement).Skip(2))
+                            .List()));
+                }
             }
-            return null;
+            if (r == null) return null;
+            return new CodeIssue[] {
+                new CodeIssue(CodeIssue.Severity.Warning, ifNode.IfKeyword.Span, "'If' statement can be simplified into an expression", new[] {r})
+            };
         }
 
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxToken token, CancellationToken cancellationToken) {

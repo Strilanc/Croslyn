@@ -193,6 +193,9 @@ public static class TrivialTransforms {
     public static SimpleNameSyntax AsIdentifier(this String name) {
         return Syntax.IdentifierName(name);
     }
+    public static LocalDeclarationStatementSyntax varInit(this SimpleNameSyntax name, ExpressionSyntax value) {
+        return name.Identifier.varInit(value);
+    }
     public static LocalDeclarationStatementSyntax varInit(this SyntaxToken name, ExpressionSyntax value) {
         return Syntax.LocalDeclarationStatement(declaration: Syntax.VariableDeclaration(
             Syntax.IdentifierName(Syntax.Token(SyntaxKind.VarKeyword)),
@@ -200,5 +203,8 @@ public static class TrivialTransforms {
                 name,
                 initializerOpt: Syntax.EqualsValueClause(
                     value: value)).SepList1()));
+    }
+    public static ExpressionStatementSyntax varAssign(this ExpressionSyntax lhs, ExpressionSyntax value) {
+        return Syntax.ExpressionStatement(Syntax.BinaryExpression(SyntaxKind.AssignExpression, lhs, Syntax.Token(SyntaxKind.EqualsToken), value));
     }
 }
