@@ -83,21 +83,15 @@ namespace Croslyn.Refactorings {
             if (initializables.Length == 0) return null; //trivial
 
             var pars = initializables.Select(e => Syntax.Parameter(typeOpt: e.type, identifier: e.id, defaultOpt: e.init));
-            var sets = initializables.Select(e => Syntax.ExpressionStatement(
-                Syntax.BinaryExpression(
-                    SyntaxKind.AssignExpression,
-                    Syntax.MemberAccessExpression(
-                        SyntaxKind.MemberAccessExpression,
-                        Syntax.IdentifierName(Syntax.Token(SyntaxKind.ThisKeyword)),
-                        Syntax.Token(SyntaxKind.DotToken),
-                        Syntax.IdentifierName(e.id)),
-                    Syntax.Token(SyntaxKind.EqualsToken),
-                    Syntax.IdentifierName(e.id))));
+            var initStatements = initializables.Select(e => Syntax.ExpressionStatement(
+                Syntax.IdentifierName(Syntax.Token(SyntaxKind.ThisKeyword))
+                .Accessing(Syntax.IdentifierName(e.id))
+                .BOpAssigned(Syntax.IdentifierName(e.id))));
             return Syntax.ConstructorDeclaration(
                 identifier: syntax.Identifier,
                 modifiers: Syntax.TokenList(Syntax.Token(SyntaxKind.PublicKeyword)),
-                parameterList: Syntax.ParameterList(parameters: Syntax.SeparatedList(pars, Syntax.Token(SyntaxKind.CommaToken).RepeatForever().Take(pars.Count() - 1))),
-                bodyOpt: Syntax.Block(statements: Syntax.List<StatementSyntax>(sets)));
+                parameterList: pars.Pars(),
+                bodyOpt: initStatements.Block());
         }
     }
 }

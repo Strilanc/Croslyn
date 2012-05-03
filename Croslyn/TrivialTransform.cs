@@ -165,11 +165,17 @@ public static class TrivialTransforms {
     public static SeparatedSyntaxList<T> SepList1<T>(this T item) where T : SyntaxNode {
         return Syntax.SeparatedList(item);
     }
+    public static SeparatedSyntaxList<T> SepBy<T>(this IEnumerable<T> items, SyntaxToken seperator) where T : SyntaxNode {
+        return Syntax.SeparatedList(items, seperator.RepeatForever().Take(items.Count() - 1));
+    }
     public static ArgumentSyntax Arg(this ExpressionSyntax item) {
         return Syntax.Argument(expression: item);
     }
     public static ArgumentListSyntax Args1(this ExpressionSyntax item) {
         return Syntax.ArgumentList(arguments: item.Arg().SepList1());
+    }
+    public static ParameterListSyntax Pars(this IEnumerable<ParameterSyntax> pars) {
+        return Syntax.ParameterList(parameters: pars.SepBy(Syntax.Token(SyntaxKind.CommaToken)));
     }
     public static TypeArgumentListSyntax TypeArgs1(this TypeSyntax syntax) {
         return Syntax.TypeArgumentList(arguments: Syntax.SeparatedList(syntax));
@@ -220,6 +226,9 @@ public static class TrivialTransforms {
     }
     public static ExpressionSyntax BOpEquals(this ExpressionSyntax lhs, ExpressionSyntax rhs) {
         return Syntax.BinaryExpression(SyntaxKind.EqualsExpression, lhs, Syntax.Token(SyntaxKind.EqualsEqualsToken), rhs);
+    }
+    public static ExpressionSyntax BOpAssigned(this ExpressionSyntax lhs, ExpressionSyntax rhs) {
+        return Syntax.BinaryExpression(SyntaxKind.AssignExpression, lhs, Syntax.Token(SyntaxKind.EqualsToken), rhs);
     }
     public static CodeIssue[] CodeIssues1(this ICodeAction action, CodeIssue.Severity severity, TextSpan span, String description) {
         Contract.Requires(action != null);
