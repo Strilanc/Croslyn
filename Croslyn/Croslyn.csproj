@@ -80,12 +80,11 @@
   <ItemGroup>
     <Compile Include="Analysis.cs" />
     <Compile Include="CodeAction.cs" />
-    <Compile Include="CodeIssues\ForEachToFirst.cs" />
     <Compile Include="CodeIssues\ForEachToAny.cs" />
+    <Compile Include="CodeIssues\ForEachToFirstLast.cs" />
     <Compile Include="CodeIssues\ForEachToWhere.cs" />
     <Compile Include="CodeIssues\ForEachToSelect.cs" />
     <Compile Include="CodeIssues\IfToBool.cs" />
-    <Compile Include="CodeIssues\ForEachToIf.cs" />
     <Compile Include="CodeIssues\UselessStatement.cs" />
     <Compile Include="CodeIssues\UnnecessaryBraces.cs" />
     <Compile Include="CodeIssues\UnnecessaryElse.cs" />

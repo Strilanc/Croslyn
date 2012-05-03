@@ -14,11 +14,11 @@ using Strilbrary.Values;
 
 namespace Croslyn.CodeIssues {
     [ExportSyntaxNodeCodeIssueProvider("Croslyn", LanguageNames.CSharp, typeof(ForEachStatementSyntax))]
-    internal class ForEachToFirst : ICodeIssueProvider {
+    internal class ForEachToFirstLast : ICodeIssueProvider {
         private readonly ICodeActionEditFactory editFactory;
 
         [ImportingConstructor]
-        internal ForEachToFirst(ICodeActionEditFactory editFactory) {
+        internal ForEachToFirstLast(ICodeActionEditFactory editFactory) {
             this.editFactory = editFactory;
         }
 
@@ -34,8 +34,10 @@ namespace Croslyn.CodeIssues {
             if (bodyWithoutJump.Any(e => e.HasTopLevelIntraLoopJumps())) return null;
 
             var iterReads = forLoop.Statement.ReadsOfLocalVariable(forLoop.Identifier).ToArray();
-            if (forLoop.Statement.IsLoopVarFirstpotent(iterReads, model) < Analysis.Result.TrueIfCodeFollowsConventions) return null;
             if (iterReads.Length == 0) return null;
+
+            var firstSufficient = forLoop.Statement.IsLoopVarFirstpotent(iterReads, model);
+            var lastSufficient = forLoop.Statement.IsLoopVarLastpotent(iterReads, model);
 
             var iterator = model.AnalyzeRegionDataFlow(forLoop.Statement.Span).ReadInside.First(e => e.Name == forLoop.Identifier.ValueText);
             var iteratorType = ((LocalSymbol)iterator).Type;
@@ -44,26 +46,36 @@ namespace Croslyn.CodeIssues {
             var nullableQuery = nuller.Item1;
             var valueGetter = nuller.Item2;
 
-            var query = nullableQuery.Accessing("FirstOrDefault").Invoking();
-
             var tempNullableLocalName = Syntax.Identifier("_" + forLoop.Identifier.ValueText);
             var tempNullableLocalGet = Syntax.IdentifierName(tempNullableLocalName);
 
-            var ifFirstStatements = new StatementSyntax[] {
-                tempNullableLocalName.VarInit(query),
-                tempNullableLocalGet.BOpNotEquals(Syntax.LiteralExpression(SyntaxKind.NullLiteralExpression))
-                    .IfThen(bodyWithoutJump.Prepend(forLoop.Identifier.VarInit(valueGetter(tempNullableLocalGet))).Block())};
+            var firstOrLast = new List<String>();
+            if (firstSufficient >= Analysis.Result.TrueIfCodeFollowsConventions) firstOrLast.Add("First");
+            if (lastSufficient >= Analysis.Result.TrueIfCodeFollowsConventions) firstOrLast.Add("Last");
 
-            var switchToIfFirstStatements = forLoop.MakeReplaceStatementWithManyAction(
-                ifFirstStatements,
-                "for(c){a} -> if(c.First?()){a}",
-                editFactory,
-                document);
+            return firstOrLast.Select(firstVsLast => {
+                var query = nullableQuery.Accessing(firstVsLast + "OrDefault").Invoking();
 
-            return switchToIfFirstStatements.CodeIssues1(
-                CodeIssue.Severity.Warning,
-                forLoop.ForEachKeyword.Span,
-                "Loop can be simplified by using a Linq query and a temporary local.");
+                var condition = tempNullableLocalGet.BOpNotEquals(Syntax.LiteralExpression(SyntaxKind.NullLiteralExpression));
+                var useDenulledLocal = iterReads.Length > 2;
+                var thenStatement = useDenulledLocal
+                                  ? bodyWithoutJump.Prepend(forLoop.Identifier.VarInit(valueGetter(tempNullableLocalGet))).Block()
+                                  : bodyWithoutJump.Select(e => e.ReplaceNodes(iterReads, (n, a) => valueGetter(tempNullableLocalGet))).Block();
+
+                var ifStatements = new StatementSyntax[] {
+                    tempNullableLocalName.VarInit(query),
+                    condition.IfThen(thenStatement)};
+                var switchToIfStatements = forLoop.MakeReplaceStatementWithManyAction(
+                    ifStatements,
+                    "for(c){a} -> if(c." + firstVsLast + "?()){a}",
+                    editFactory,
+                    document);
+                return new CodeIssue(
+                    CodeIssue.Severity.Warning,
+                    forLoop.ForEachKeyword.Span,
+                    firstVsLast + " execution of loop body is sufficient.",
+                    new[] {switchToIfStatements });
+            }).ToArray();
         }
         public static Tuple<ExpressionSyntax, Func<IdentifierNameSyntax, ExpressionSyntax>> GetNullabledQueryAndValueGetter(TypeSymbol itemType, SyntaxToken iterator, ExpressionSyntax collection) {
             if (!itemType.IsReferenceType && itemType.SpecialType != SpecialType.System_Nullable_T) {
