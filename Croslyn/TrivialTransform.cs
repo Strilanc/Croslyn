@@ -264,6 +264,30 @@ public static class TrivialTransforms {
                              argumentListOpt == null ? syntax.ArgumentListOpt : argumentListOpt.Value, 
                              initializerOpt == null ? syntax.InitializerOpt : initializerOpt.Value);
     }
+    public static ParameterListSyntax With(this ParameterListSyntax syntax,
+                                           SyntaxToken? openParenToken = null,
+                                           SeparatedSyntaxList<ParameterSyntax>? parameters = null,
+                                           SyntaxToken? closeParenToken = null) {
+        return syntax.Update(openParenToken ?? syntax.OpenParenToken,
+                             parameters ?? syntax.Parameters,
+                             closeParenToken ?? syntax.CloseParenToken);
+    }
+    public static ArgumentListSyntax With(this ArgumentListSyntax syntax,
+                                           SyntaxToken? openParenToken = null,
+                                           SeparatedSyntaxList<ArgumentSyntax>? arguments = null,
+                                           SyntaxToken? closeParenToken = null) {
+        return syntax.Update(openParenToken ?? syntax.OpenParenToken,
+                             arguments ?? syntax.Arguments,
+                             closeParenToken ?? syntax.CloseParenToken);
+    }
+    public static InitializerExpressionSyntax With(this InitializerExpressionSyntax syntax,
+                                                   SyntaxToken? openBraceToken = null,
+                                                   SeparatedSyntaxList<ExpressionSyntax>? expressions = null,
+                                                   SyntaxToken? closeBraceToken = null) {
+        return syntax.Update(openBraceToken ?? syntax.OpenBraceToken,
+                             expressions ?? syntax.Expressions,
+                             closeBraceToken ?? syntax.CloseBraceToken);
+    }
     public static ForEachStatementSyntax With(this ForEachStatementSyntax syntax,
                                               SyntaxToken? forEachKeyword = null,
                                               SyntaxToken? openParenToken = null,
@@ -289,6 +313,12 @@ public static class TrivialTransforms {
         return syntax.Update(returnKeyword ?? syntax.ReturnKeyword,
                              expressionOpt == null ? syntax.ExpressionOpt : expressionOpt.Value,
                              semicolonToken ?? syntax.SemicolonToken);
+    }
+    public static SeparatedSyntaxList<T> With<T>(this SeparatedSyntaxList<T> syntax,
+                                                 IEnumerable<T> nodes = null,
+                                                 IEnumerable<SyntaxToken> seps = null) where T : SyntaxNode {
+        return Syntax.SeparatedList(nodes ?? syntax.AsEnumerable(),
+                                    seps ?? Enumerable.Range(0, syntax.SeparatorCount).Select(e => syntax.GetSeparator(e)));
     }
     public enum Placement { Before, After, Around }
     public static T IncludingTriviaSurrounding<T>(this T node, SyntaxNode other, Placement othersRelativePosition) where T : SyntaxNode {

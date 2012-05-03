@@ -51,7 +51,6 @@ namespace Croslyn.CodeIssues {
                 if (altReturn == null) return null;
                 if (altReturn.ExpressionOpt == null) return null;
                 if (altReturn.ExpressionOpt.Kind != oppKind) return null;
-                var y = foldedConditional.IncludingTriviaSurrounding(altReturn, TrivialTransforms.Placement.After);
 
                 actions.Add(new ReadyCodeAction("Fold into single return", editFactory, document, parentBlock, () => parentBlock.With(statements:
                         parentBlock.Statements.TakeWhile(e => e != ifNode)
