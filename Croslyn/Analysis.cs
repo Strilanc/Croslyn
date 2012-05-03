@@ -336,7 +336,7 @@ public static class Analysis {
     public static bool IsAssignment(this StatementSyntax syntax) {
         var b = syntax as ExpressionStatementSyntax;
         if (b == null) return false;
-        return b.Kind == SyntaxKind.AssignExpression;
+        return b.Expression.Kind == SyntaxKind.AssignExpression;
     }
     public static bool IsSingleInitialization(this StatementSyntax syntax) {
         var b = syntax as LocalDeclarationStatementSyntax;
@@ -347,12 +347,23 @@ public static class Analysis {
     public static bool IsAssignmentOrSingleInitialization(this StatementSyntax syntax) {
         return syntax is LocalDeclarationStatementSyntax || syntax.IsAssignment();
     }
+    public static bool IsReturnValue(this StatementSyntax syntax) {
+        var r = syntax as ReturnStatementSyntax;
+        return r != null && r.ExpressionOpt != null;
+    }
+    public static bool IsAssignmentOrSingleInitializationOrReturn(this StatementSyntax syntax) {
+        return syntax.IsAssignmentOrSingleInitialization() || syntax.IsReturnValue();
+    }
     public static ExpressionSyntax TryGetRightHandSideOfAssignmentOrSingleInit(this StatementSyntax syntax) {
         if (syntax.IsAssignment()) 
             return ((BinaryExpressionSyntax)((ExpressionStatementSyntax)syntax).Expression).Right;
         if (syntax.IsSingleInitialization()) 
             return ((LocalDeclarationStatementSyntax)syntax).Declaration.Variables.Single().InitializerOpt.Value;
         return null;
+    }
+    public static ExpressionSyntax TryGetRightHandSideOfAssignmentOrSingleInitOrReturnValue(this StatementSyntax syntax) {
+        if (syntax.IsReturnValue()) return ((ReturnStatementSyntax)syntax).ExpressionOpt;
+        return syntax.TryGetRightHandSideOfAssignmentOrSingleInit();
     }
     public static ExpressionSyntax TryGetLeftHandSideOfAssignmentOrSingleInit(this StatementSyntax syntax) {
         if (syntax.IsAssignment())
@@ -364,5 +375,12 @@ public static class Analysis {
     public static StatementSyntax ElseStatementOrEmptyBlock(this IfStatementSyntax syntax) {
         Contract.Requires(syntax != null);
         return syntax.ElseOpt != null ? syntax.ElseOpt.Statement : Syntax.Block();
+    }
+    public static IEnumerable<StatementSyntax> ElseAndFollowingStatements(this IfStatementSyntax syntax) {
+        Contract.Requires(syntax != null);
+        var parent = syntax.Parent as BlockSyntax;
+        var alt = syntax.ElseStatementOrEmptyBlock().Statements();
+        var following = parent != null ? parent.Statements.SkipWhile(e => e != syntax).Skip(1) : new StatementSyntax[0];
+        return alt.Concat(following);
     }
 }

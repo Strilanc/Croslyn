@@ -17,4 +17,10 @@ public static class Util {
         ISemanticModel model;
         return document.TryGetSemanticModel(out model) ? model : null;
     }
+    public static T SingleOrDefaultAllowMany<T>(this IEnumerable<T> sequence) {
+        var e = sequence.GetEnumerator();
+        if (!e.MoveNext()) return default(T);
+        var r = e.Current;
+        return e.MoveNext() ? default(T) : r;
+    }
 }

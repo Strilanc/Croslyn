@@ -63,7 +63,7 @@ namespace Croslyn.CodeIssues {
             var newPreceedingStatement = preceedingStatement.TryWithNewRightHandSideOfAssignmentOrSingleInit(linqed);
 
             var toIfAnyThenAction = new ReadyCodeAction(
-                "for(x){add(y)} -> x.Select(y)",
+                "for(x){add(y)} -> =x.Select(y).ToList()",
                 editFactory,
                 document,
                 parent,
@@ -76,7 +76,7 @@ namespace Croslyn.CodeIssues {
             return toIfAnyThenAction.CodeIssues1(
                 CodeIssue.Severity.Warning,
                 forLoop.ForEachKeyword.Span,
-                "Loop can be simplified by using a Linq query.");
+                "Populating a list with a loop instead of a Linq query.");
         }
 
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxToken token, CancellationToken cancellationToken) {

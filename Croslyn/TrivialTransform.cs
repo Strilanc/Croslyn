@@ -206,7 +206,7 @@ public static class TrivialTransforms {
                 initializerOpt: Syntax.EqualsValueClause(
                     value: value)).SepList1()));
     }
-    public static ExpressionStatementSyntax CarAssign(this ExpressionSyntax lhs, ExpressionSyntax value) {
+    public static ExpressionStatementSyntax VarAssign(this ExpressionSyntax lhs, ExpressionSyntax value) {
         return Syntax.ExpressionStatement(Syntax.BinaryExpression(SyntaxKind.AssignExpression, lhs, Syntax.Token(SyntaxKind.EqualsToken), value));
     }
     public static IfStatementSyntax IfThen(this ExpressionSyntax condition, StatementSyntax conditionalAction, StatementSyntax alternativeAction = null) {
@@ -273,6 +273,14 @@ public static class TrivialTransforms {
                              closeParenToken ?? syntax.CloseParenToken,
                              statement ?? syntax.Statement);
     }
+    public static ReturnStatementSyntax With(this ReturnStatementSyntax syntax,
+                                             SyntaxToken? returnKeyword = null,
+                                             Renullable<ExpressionSyntax> expressionOpt = null,
+                                             SyntaxToken? semicolonToken = null) {
+        return syntax.Update(returnKeyword ?? syntax.ReturnKeyword,
+                             expressionOpt == null ? syntax.ExpressionOpt : expressionOpt.Value,
+                             semicolonToken ?? syntax.SemicolonToken);
+    }
     public static StatementSyntax TryWithNewRightHandSideOfAssignmentOrSingleInit(this StatementSyntax syntax, ExpressionSyntax rhs) {
         if (syntax.IsAssignment()) {
             var s = (ExpressionStatementSyntax)syntax;
@@ -284,5 +292,10 @@ public static class TrivialTransforms {
             return d.With(declaration: d.Declaration.With(variables: Syntax.SeparatedList(d.Declaration.Variables.Single().With(initializerOpt: Syntax.EqualsValueClause(value: rhs)))));
         }
         return null;
+    }
+    public static StatementSyntax TryWithNewRightHandSideOfAssignmentOrSingleInitOrReturnValue(this StatementSyntax syntax, ExpressionSyntax rhs) {
+        if (syntax.IsReturnValue())
+            return ((ReturnStatementSyntax)syntax).With(expressionOpt: new Renullable<ExpressionSyntax>(rhs));
+        return syntax.TryWithNewRightHandSideOfAssignmentOrSingleInit(rhs);
     }
 }
