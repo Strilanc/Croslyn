@@ -46,7 +46,7 @@ namespace Croslyn.CodeIssues {
                 editFactory,
                 document,
                 forLoop,
-                () => ifAnyStatement);
+                () => ifAnyStatement.IncludingTriviaSurrounding(forLoop, TrivialTransforms.Placement.Around));
 
             return toIfAnyStatement.CodeIssues1(
                 CodeIssue.Severity.Warning,

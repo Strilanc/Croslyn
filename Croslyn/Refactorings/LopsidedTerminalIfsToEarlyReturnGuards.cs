@@ -38,7 +38,7 @@ namespace Croslyn.Refactorings {
                 () => p.ReplaceNodes(p.DescendentNodes().OfType<BlockSyntax>(), (e,a) => LopsidedTerminalBranchesToGuardedBranches(a)))});
         }
         public static BlockSyntax LopsidedTerminalBranchesToGuardedBranches(BlockSyntax syntax) {
-            return syntax.With(statements: Syntax.List(syntax.Statements.SelectMany(e => e is IfStatementSyntax ? LopsidedTerminalBranchesToGuardedBranches((IfStatementSyntax)e) : new[] { e })));
+            return syntax.With(statements: syntax.Statements.SelectMany(e => e is IfStatementSyntax ? LopsidedTerminalBranchesToGuardedBranches((IfStatementSyntax)e) : new[] { e }).List());
         }
         public static IEnumerable<StatementSyntax> LopsidedTerminalBranchesToGuardedBranches(IfStatementSyntax syntax) {
             Contract.Requires(syntax != null);

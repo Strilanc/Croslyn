@@ -290,6 +290,20 @@ public static class TrivialTransforms {
                              expressionOpt == null ? syntax.ExpressionOpt : expressionOpt.Value,
                              semicolonToken ?? syntax.SemicolonToken);
     }
+    public enum Placement { Before, After, Around }
+    public static T IncludingTriviaSurrounding<T>(this T node, SyntaxNode other, Placement othersRelativePosition) where T : SyntaxNode {
+        switch (othersRelativePosition) {
+            case Placement.Before:
+                return node.WithLeadingTrivia(other.GetLeadingTrivia().Concat(other.GetTrailingTrivia()).Concat(node.GetLeadingTrivia()).DistinctBy(e => e.ToString()));
+            case Placement.After:
+                return node.WithTrailingTrivia(node.GetTrailingTrivia().Concat(other.GetLeadingTrivia()).Concat(other.GetTrailingTrivia()).DistinctBy(e => e.ToString()));
+            case Placement.Around:
+                return node.WithLeadingTrivia(other.GetLeadingTrivia().Concat(node.GetLeadingTrivia()).DistinctBy(e => e.ToString()))
+                           .WithTrailingTrivia(node.GetTrailingTrivia().Concat(other.GetTrailingTrivia()).DistinctBy(e => e.ToString()));
+            default:
+                throw new ArgumentException();
+        }
+    }
     public static StatementSyntax TryWithNewRightHandSideOfAssignmentOrSingleInit(this StatementSyntax syntax, ExpressionSyntax rhs) {
         if (syntax.IsAssignment()) {
             var s = (ExpressionStatementSyntax)syntax;

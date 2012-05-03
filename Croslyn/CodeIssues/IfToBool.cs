@@ -41,24 +41,32 @@ namespace Croslyn.CodeIssues {
             var invertCondition = isFalse;
             var cond = invertCondition ? ifNode.Condition.Inverted() : ifNode.Condition;
             var oppKind = invertCondition ? SyntaxKind.TrueLiteralExpression : SyntaxKind.FalseLiteralExpression;
-            
-            var foldedConditional = conditionalStatement.TryWithNewRightHandSideOfAssignmentOrSingleInitOrReturnValue(cond);
+
+            var foldedConditional = conditionalStatement
+                                    .TryWithNewRightHandSideOfAssignmentOrSingleInitOrReturnValue(cond)
+                                    .IncludingTriviaSurrounding(ifNode, TrivialTransforms.Placement.Around);
             
             if (conditionalStatement.IsReturnValue()) {
                 var altReturn = ifNode.ElseAndFollowingStatements().FirstOrDefault() as ReturnStatementSyntax;
                 if (altReturn == null) return null;
                 if (altReturn.ExpressionOpt == null) return null;
                 if (altReturn.ExpressionOpt.Kind != oppKind) return null;
+                var y = foldedConditional.IncludingTriviaSurrounding(altReturn, TrivialTransforms.Placement.After);
 
                 actions.Add(new ReadyCodeAction("Fold into single return", editFactory, document, parentBlock, () => parentBlock.With(statements:
                         parentBlock.Statements.TakeWhile(e => e != ifNode)
-                        .Append(foldedConditional)
+                        .Append(foldedConditional.IncludingTriviaSurrounding(altReturn, TrivialTransforms.Placement.After))
                         .Concat(parentBlock.Statements.SkipWhile(e => e != ifNode).SkipWhile(e => e == ifNode || e == altReturn))
                         .List())));
             }
             if (conditionalStatement.IsAssignment()) {
                 var lhs = conditionalStatement.TryGetLeftHandSideOfAssignmentOrSingleInit() as IdentifierNameSyntax;
                 if (lhs == null) return null;
+                
+                var dataFlow = model.AnalyzeRegionDataFlow(ifNode.Condition.Span);
+                if (dataFlow.ReadInside.Any(e => e.Name == lhs.PlainName)) return null;
+                if (dataFlow.WrittenInside.Any(e => e.Name == lhs.PlainName)) return null;
+                
                 Func<StatementSyntax, bool> isMatchingAssignment = s => {
                     if (s == null) return false;
                     var rhs2 = s.TryGetRightHandSideOfAssignmentOrSingleInit();
@@ -77,7 +85,9 @@ namespace Croslyn.CodeIssues {
                     actions.Add(new ReadyCodeAction("Fold into single assignment", editFactory, document, ifNode, () => foldedConditional));
                 }
                 if (isMatchingAssignment(preceedingStatement)) {
-                    var foldedAssignment = preceedingStatement.TryWithNewRightHandSideOfAssignmentOrSingleInit(cond);
+                    var foldedAssignment = preceedingStatement
+                                           .TryWithNewRightHandSideOfAssignmentOrSingleInit(cond)
+                                           .IncludingTriviaSurrounding(ifNode, TrivialTransforms.Placement.After);
                     actions.Add(new ReadyCodeAction("Fold into single assignment", editFactory, document, parentBlock, () => parentBlock.With(statements: 
                             parentBlock.Statements.TakeWhile(e => e != preceedingStatement)
                             .Append(foldedAssignment)
