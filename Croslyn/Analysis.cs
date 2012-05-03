@@ -361,4 +361,8 @@ public static class Analysis {
             return Syntax.IdentifierName(((LocalDeclarationStatementSyntax)syntax).Declaration.Variables.Single().Identifier);
         return null;
     }
+    public static StatementSyntax ElseStatementOrEmptyBlock(this IfStatementSyntax syntax) {
+        Contract.Requires(syntax != null);
+        return syntax.ElseOpt != null ? syntax.ElseOpt.Statement : Syntax.Block();
+    }
 }

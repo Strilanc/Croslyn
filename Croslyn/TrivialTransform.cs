@@ -255,6 +255,24 @@ public static class TrivialTransforms {
                              argumentListOpt == null ? syntax.ArgumentListOpt : argumentListOpt.Value, 
                              initializerOpt == null ? syntax.InitializerOpt : initializerOpt.Value);
     }
+    public static ForEachStatementSyntax With(this ForEachStatementSyntax syntax,
+                                              SyntaxToken? forEachKeyword = null,
+                                              SyntaxToken? openParenToken = null,
+                                              TypeSyntax type = null,
+                                              SyntaxToken? identifier = null,
+                                              SyntaxToken? inKeyword = null,
+                                              ExpressionSyntax expression = null,
+                                              SyntaxToken? closeParenToken = null,
+                                              StatementSyntax statement = null) {
+        return syntax.Update(forEachKeyword ?? syntax.ForEachKeyword,
+                             openParenToken ?? syntax.OpenParenToken,
+                             type ?? syntax.Type,
+                             identifier ?? syntax.Identifier,
+                             inKeyword ?? syntax.InKeyword,
+                             expression ?? syntax.Expression,
+                             closeParenToken ?? syntax.CloseParenToken,
+                             statement ?? syntax.Statement);
+    }
     public static StatementSyntax TryWithNewRightHandSideOfAssignmentOrSingleInit(this StatementSyntax syntax, ExpressionSyntax rhs) {
         if (syntax.IsAssignment()) {
             var s = (ExpressionStatementSyntax)syntax;

@@ -80,6 +80,7 @@
   <ItemGroup>
     <Compile Include="Analysis.cs" />
     <Compile Include="CodeAction.cs" />
+    <Compile Include="CodeIssues\ForEachToWhere.cs" />
     <Compile Include="CodeIssues\ForEachToSelect.cs" />
     <Compile Include="CodeIssues\IfToBool.cs" />
     <Compile Include="CodeIssues\ForEachToIf.cs" />
