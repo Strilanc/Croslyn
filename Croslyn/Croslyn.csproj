@@ -80,7 +80,7 @@
   <ItemGroup>
     <Compile Include="Analysis.cs" />
     <Compile Include="CodeAction.cs" />
-    <Compile Include="CodeIssues\InconsistentIndentation.cs" />
+    <Compile Include="CodeIssues\InconsistentAlignment.cs" />
     <Compile Include="CodeIssues\ForEachToAny.cs" />
     <Compile Include="CodeIssues\ForEachToFirstLast.cs" />
     <Compile Include="CodeIssues\ForEachToWhere.cs" />
@@ -89,6 +89,7 @@
     <Compile Include="CodeIssues\UselessStatement.cs" />
     <Compile Include="CodeIssues\UnnecessaryBraces.cs" />
     <Compile Include="CodeIssues\UnnecessaryElse.cs" />
+    <Compile Include="SyntaxWithEx.cs" />
     <Compile Include="Refactorings\InlineLargeGuardedBranches.cs" />
     <Compile Include="Refactorings\LopsidedTerminalIfsToEarlyReturnGuards.cs" />
     <Compile Include="Refactorings\RemoveUnusedOperations.cs" />

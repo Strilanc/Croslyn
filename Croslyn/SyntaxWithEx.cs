@@ -119,13 +119,28 @@ public static class SyntaxWithEx {
                                          StatementSyntax statement = null,
                                          Renullable<ElseClauseSyntax> elseOpt = null) {
         Contract.Requires(@this != null);
-        var r = @this.Update(ifKeyword ?? @this.IfKeyword,
-                             openParenToken ?? @this.OpenParenToken ,
-                             condition ?? @this.Condition,
-                             closeParenToken ?? @this.CloseParenToken,
-                             statement ?? @this.Statement,
-                             elseOpt == null ? @this.ElseOpt : elseOpt.Value);
-        return r == @this ? @this : r;
+        
+        var newIfKeyword = ifKeyword ?? @this.IfKeyword;
+        var newOpenParenToken = openParenToken ?? @this.OpenParenToken;
+        var newCondition = condition ?? @this.Condition;
+        var newCloseParenToken = closeParenToken ?? @this.CloseParenToken;
+        var newStatement = statement ?? @this.Statement;
+        var newElseOpt = elseOpt == null ? @this.ElseOpt : elseOpt.Value;
+        
+        if (newIfKeyword == @this.IfKeyword
+                && newOpenParenToken == @this.OpenParenToken
+                && newCondition == @this.Condition
+                && newCloseParenToken == @this.CloseParenToken
+                && newStatement == @this.Statement
+                && newElseOpt == @this.ElseOpt)
+            return @this;
+
+        return @this.Update(newIfKeyword,
+                            newOpenParenToken,
+                            newCondition,
+                            newCloseParenToken,
+                            newStatement,
+                            newElseOpt);
     }
     public static WhileStatementSyntax With(this WhileStatementSyntax @this,
                                             SyntaxToken? whileKeyword = null,
@@ -231,10 +246,22 @@ public static class SyntaxWithEx {
                              expressionOpt == null ? syntax.ExpressionOpt : expressionOpt.Value,
                              semicolonToken ?? syntax.SemicolonToken);
     }
+    public static QueryExpressionSyntax With(this QueryExpressionSyntax syntax,
+                                             SyntaxList<QueryClauseSyntax>? clauses = null,
+                                             SelectOrGroupClauseSyntax selectOrGroup = null,
+                                             Renullable<QueryContinuationSyntax> continuationOpt = null) {
+        return syntax.Update(clauses ?? syntax.Clauses,
+                             selectOrGroup ?? syntax.SelectOrGroup,
+                             continuationOpt == null ? syntax.ContinuationOpt : continuationOpt.Value);
+    }
     public static SeparatedSyntaxList<T> With<T>(this SeparatedSyntaxList<T> syntax,
                                                  IEnumerable<T> nodes = null,
                                                  IEnumerable<SyntaxToken> seps = null) where T : SyntaxNode {
         return Syntax.SeparatedList(nodes ?? syntax.AsEnumerable(),
                                     seps ?? Enumerable.Range(0, syntax.SeparatorCount).Select(e => syntax.GetSeparator(e)));
+    }
+    public static SyntaxList<T> With<T>(this SyntaxList<T> syntax,
+                                        IEnumerable<T> nodes = null) where T : SyntaxNode {
+        return nodes == null ? syntax : Syntax.List(nodes);
     }
 }

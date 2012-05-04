@@ -27,29 +27,29 @@ namespace Croslyn.CodeIssues {
             if (tree == null) return null;
             var n = (SyntaxNode)node;
             var para = node as ParameterListSyntax;
-            if (para != null) return GetIssues(document, tree, para.Parameters, n, L => para.With(parameters: L));
+            if (para != null) return GetIssues(document, tree, para.Parameters, n, L => para.With(parameters: para.Parameters.With(L)));
             var arg = node as ArgumentListSyntax;
-            if (arg != null) return GetIssues(document, tree, arg.Arguments, n, L => arg.With(arguments: L));
+            if (arg != null) return GetIssues(document, tree, arg.Arguments, n, L => arg.With(arguments: arg.Arguments.With(L)));
             var ini = node as InitializerExpressionSyntax;
-            if (ini != null) return GetIssues(document, tree, ini.Expressions, n, L => ini.With(expressions: L));
+            if (ini != null) return GetIssues(document, tree, ini.Expressions, n, L => ini.With(expressions: ini.Expressions.With(L)));
+            var lin = node as QueryExpressionSyntax;
+            if (lin != null) return GetIssues(document, tree, lin.Clauses, n, L => lin.With(clauses: lin.Clauses.With(L)));
             return null;
         }
-        private IEnumerable<CodeIssue> GetIssues<T>(IDocument document, 
+        private IEnumerable<CodeIssue> GetIssues<T>(IDocument document,
                                                     CommonSyntaxTree tree,
-                                                    SeparatedSyntaxList<T> list,
-                                                    SyntaxNode container, 
-                                                    Func<SeparatedSyntaxList<T>, SyntaxNode> containerWith) where T : SyntaxNode {
-            if (container.GetText().Split('\r', '\n').Count() <= 1) return null;
-            var f = list.ToDictionary(e => e, e => {
-                var p = tree.GetLineSpan(e.Span, usePreprocessorDirectives: false).StartLinePosition;
-                return new { n = e, line = p.Line, col = p.Character };
-            });
-            if (f.Values.DistinctBy(e => e.line).Count() <= 1) return null;
-            if (f.Values.DistinctBy(e => e.col).Count() <= 1) return null;
-            
-            var correctCol = f[list.First()].col;
+                                                    IEnumerable<T> list,
+                                                    SyntaxNode container,
+                                                    Func<IEnumerable<T>, SyntaxNode> containerWith) where T : SyntaxNode {
+            var pos = tree.GetLineSpan(container.Span, usePreprocessorDirectives: false);
+            if (pos.StartLinePosition.Line == pos.EndLinePosition.Line) return null;
+
+            var cols = list.Select(e => tree.GetLineSpan(e.Span, usePreprocessorDirectives: false).StartLinePosition.Character);
+            if (cols.Distinct().Count() <= 1) return null;
+
+            var correctCol = cols.First();
             var corrected = list.Select(e => e.WithExactIndentation(tree, correctCol));
-            var newC = containerWith(list.With(nodes: corrected));
+            var newC = containerWith(corrected);
             var r = new ReadyCodeAction("Correct alignment", editFactory, document, container, () => newC, addFormatAnnotation: false);
             return r.CodeIssues1(CodeIssue.Severity.Info, list.First().Span, "Inconsistent alignment");
         }

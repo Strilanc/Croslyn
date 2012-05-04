@@ -94,11 +94,11 @@ public static class Transforms {
         var methodSymbol = (MethodSymbol)model.GetDeclaredSymbol(method);
         var root = ((Roslyn.Compilers.CSharp.SyntaxTree)document.GetSyntaxTree()).Root;
         var invocations = from node in root.DescendentNodes(e => !(e is ExpressionSyntax)).OfType<ExpressionStatementSyntax>()
-                            let inv = node.Expression as InvocationExpressionSyntax
-                            where inv != null
-                            let exp = (MethodSymbol)model.GetSemanticInfo(inv.Expression).Symbol
-                            where exp == methodSymbol
-                            select (SyntaxNode)node;
+                          let inv = node.Expression as InvocationExpressionSyntax
+                          where inv != null
+                          let exp = (MethodSymbol)model.GetSemanticInfo(inv.Expression).Symbol
+                          where exp == methodSymbol
+                          select (SyntaxNode)node;
         return root.ReplaceNodes(invocations.Append(method), (e, a) => e.Dropped());
     }
 
@@ -128,22 +128,20 @@ public static class Transforms {
     public static StatementSyntax DropEmptyBranchesIfApplicable(this IfStatementSyntax syntax) {
         Contract.Requires(syntax != null);
 
-        var skipFalse = syntax.ElseOpt == null || syntax.ElseOpt.Statement.HasSideEffects() <= Analysis.Result.FalseIfCodeFollowsConventions;
-        var skipTrue = syntax.Statement.HasSideEffects() <= Analysis.Result.FalseIfCodeFollowsConventions;
+        var canOmitCondition = syntax.Condition.HasSideEffects() <= Analysis.Result.FalseIfCodeFollowsConventions;
+        var canOmitTrueBranch = syntax.Statement.HasSideEffects() <= Analysis.Result.FalseIfCodeFollowsConventions;
+        var canOmitFalseBranch = syntax.ElseStatementOrEmptyBlock().HasSideEffects() <= Analysis.Result.FalseIfCodeFollowsConventions;
 
         // can we get rid of the 'if' usage?
-        var conditionSafe = syntax.Condition.HasSideEffects() <= Analysis.Result.FalseIfCodeFollowsConventions;
-        if (skipTrue && skipFalse && conditionSafe)
+        if (canOmitTrueBranch && canOmitFalseBranch && canOmitCondition)
             return syntax.Dropped();
-        if (skipTrue && skipFalse)
+        if (canOmitTrueBranch && canOmitFalseBranch)
             return Syntax.ExpressionStatement(syntax.Condition, Syntax.Token(SyntaxKind.SemicolonToken));
             
         // can we remove one of the branches?
-        if (syntax.ElseOpt == null)
-            return syntax;
-        if (skipFalse) 
+        if (canOmitFalseBranch) 
             return syntax.With(elseOpt: new Renullable<ElseClauseSyntax>(null));
-        if (skipTrue)
+        if (canOmitTrueBranch)
             return syntax.With(
                 condition: syntax.Condition.Inverted(),
                 statement: syntax.ElseOpt.Statement,
