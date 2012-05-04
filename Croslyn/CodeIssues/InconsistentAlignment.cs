@@ -13,7 +13,13 @@ using System.Diagnostics.Contracts;
 using Strilbrary.Values;
 
 namespace Croslyn.CodeIssues {
-    [ExportSyntaxNodeCodeIssueProvider("Croslyn", LanguageNames.CSharp, typeof(ParameterListSyntax), typeof(ArgumentListSyntax), typeof(InitializerExpressionSyntax))]
+    [ExportSyntaxNodeCodeIssueProvider(
+        "Croslyn", 
+        LanguageNames.CSharp, 
+        typeof(ParameterListSyntax), 
+        typeof(ArgumentListSyntax), 
+        typeof(InitializerExpressionSyntax), 
+        typeof(QueryExpressionSyntax))]
     internal class InconsistentAlignment : ICodeIssueProvider {
         private readonly ICodeActionEditFactory editFactory;
 
@@ -27,30 +33,29 @@ namespace Croslyn.CodeIssues {
             if (tree == null) return null;
             var n = (SyntaxNode)node;
             var para = node as ParameterListSyntax;
-            if (para != null) return GetIssues(document, tree, para.Parameters, n, L => para.With(parameters: para.Parameters.With(L)));
+            if (para != null) return GetAlignmentIssue(document, tree, para.Parameters, n, L => para.With(parameters: para.Parameters.With(L)));
             var arg = node as ArgumentListSyntax;
-            if (arg != null) return GetIssues(document, tree, arg.Arguments, n, L => arg.With(arguments: arg.Arguments.With(L)));
+            if (arg != null) return GetAlignmentIssue(document, tree, arg.Arguments, n, L => arg.With(arguments: arg.Arguments.With(L)));
             var ini = node as InitializerExpressionSyntax;
-            if (ini != null) return GetIssues(document, tree, ini.Expressions, n, L => ini.With(expressions: ini.Expressions.With(L)));
+            if (ini != null) return GetAlignmentIssue(document, tree, ini.Expressions, n, L => ini.With(expressions: ini.Expressions.With(L)));
             var lin = node as QueryExpressionSyntax;
-            if (lin != null) return GetIssues(document, tree, lin.Clauses, n, L => lin.With(clauses: lin.Clauses.With(L)));
+            if (lin != null) return GetAlignmentIssue(document, tree, lin.Clauses, n, L => lin.With(clauses: lin.Clauses.With(L)));
             return null;
         }
-        private IEnumerable<CodeIssue> GetIssues<T>(IDocument document,
-                                                    CommonSyntaxTree tree,
-                                                    IEnumerable<T> list,
-                                                    SyntaxNode container,
-                                                    Func<IEnumerable<T>, SyntaxNode> containerWith) where T : SyntaxNode {
+        private IEnumerable<CodeIssue> GetAlignmentIssue<T>(IDocument document,
+                                                            CommonSyntaxTree tree,
+                                                            IEnumerable<T> list,
+                                                            SyntaxNode container,
+                                                            Func<IEnumerable<T>, SyntaxNode> containerWith) where T : SyntaxNode {
             var pos = tree.GetLineSpan(container.Span, usePreprocessorDirectives: false);
             if (pos.StartLinePosition.Line == pos.EndLinePosition.Line) return null;
 
             var cols = list.Select(e => tree.GetLineSpan(e.Span, usePreprocessorDirectives: false).StartLinePosition.Character);
             if (cols.Distinct().Count() <= 1) return null;
 
-            var correctCol = cols.First();
-            var corrected = list.Select(e => e.WithExactIndentation(tree, correctCol));
-            var newC = containerWith(corrected);
-            var r = new ReadyCodeAction("Correct alignment", editFactory, document, container, () => newC, addFormatAnnotation: false);
+            var alignedCol = cols.First();
+            var corrected = containerWith(list.Select(e => e.WithExactIndentation(tree, alignedCol)));
+            var r = new ReadyCodeAction("Correct alignment", editFactory, document, container, () => corrected, addFormatAnnotation: false);
             return r.CodeIssues1(CodeIssue.Severity.Info, list.First().Span, "Inconsistent alignment");
         }
 
