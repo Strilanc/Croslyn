@@ -14,11 +14,11 @@ using Strilbrary.Values;
 
 namespace Croslyn.CodeIssues {
     [ExportSyntaxNodeCodeIssueProvider("Croslyn", LanguageNames.CSharp, typeof(ParameterListSyntax), typeof(ArgumentListSyntax), typeof(InitializerExpressionSyntax))]
-    internal class InconsistentIndentation : ICodeIssueProvider {
+    internal class InconsistentAlignment : ICodeIssueProvider {
         private readonly ICodeActionEditFactory editFactory;
 
         [ImportingConstructor]
-        internal InconsistentIndentation(ICodeActionEditFactory editFactory) {
+        internal InconsistentAlignment(ICodeActionEditFactory editFactory) {
             this.editFactory = editFactory;
         }
 
@@ -48,17 +48,7 @@ namespace Croslyn.CodeIssues {
             if (f.Values.DistinctBy(e => e.col).Count() <= 1) return null;
             
             var correctCol = f[list.First()].col;
-            var corrected = list.Select(e => {
-                var d = correctCol - f[e].col;
-                if (d == 0) return e;
-                if (d > 0) return e.WithLeadingTrivia(e.GetLeadingTrivia().Append(Syntax.Whitespace(new String(' ', d))));
-
-                var preceedingSpace = e.GetLeadingTrivia().LastOrDefault();
-                if (preceedingSpace != null && preceedingSpace.GetFullText().EndsWith(new String(' ', -d))) {
-                    return e.WithLeadingTrivia(e.GetLeadingTrivia().SkipLast(1).Append(Syntax.Whitespace(new String(preceedingSpace.GetFullText().SkipLast(-d).ToArray()))));
-                }
-                return e.WithLeadingTrivia(e.GetLeadingTrivia().Append(Syntax.Whitespace(Environment.NewLine + new String(' ', correctCol))));
-            });
+            var corrected = list.Select(e => e.WithExactIndentation(tree, correctCol));
             var newC = containerWith(list.With(nodes: corrected));
             var r = new ReadyCodeAction("Correct alignment", editFactory, document, container, () => newC, addFormatAnnotation: false);
             return r.CodeIssues1(CodeIssue.Severity.Info, list.First().Span, "Inconsistent alignment");

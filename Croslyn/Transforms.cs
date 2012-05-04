@@ -151,4 +151,40 @@ public static class Transforms {
 
         return syntax;
     }
+
+    public static T WithExactIndentation<T>(this T node, CommonSyntaxTree tree, int column) where T : SyntaxNode {
+        var pos = tree.GetLineSpan(node.Span, usePreprocessorDirectives: false).StartLinePosition;
+        var d = column - pos.Character;
+        if (d > 0) return node.WithMoreIndentation(tree, d);
+        if (d < 0) return node.WithLessIndentation(tree, -d);
+        return node;
+    }
+    public static T WithLessIndentation<T>(this T node, CommonSyntaxTree tree, int columnDecrease) where T : SyntaxNode {
+        Contract.Requires(columnDecrease >= 0);
+
+        if (columnDecrease == 0) return node;
+        var pos = tree.GetLineSpan(node.Span, usePreprocessorDirectives: false).StartLinePosition;
+        columnDecrease = Math.Min(columnDecrease, pos.Character);
+
+        var shrinker = node.GetLeadingTrivia()
+                           .Where(e => e.Kind == SyntaxKind.WhitespaceTrivia)
+                           .Where(e => e.GetFullText().EndsWith(new String(' ', columnDecrease)))
+                           .Where(e => tree.GetLineSpan(e.FullSpan, usePreprocessorDirectives: false).StartLinePosition.Line == pos.Line)
+                           .LastOrDefault();
+        if (shrinker == null) {
+            // there's stuff in the way of de-indentation. Just start a new line.
+            var newLineSpacing = Syntax.Whitespace(Environment.NewLine + new String(' ', pos.Character - columnDecrease));
+            var leading = node.GetLeadingTrivia().Append(newLineSpacing);
+            return node.WithLeadingTrivia(leading);
+        }
+        var shrunk = Syntax.Whitespace(new String(shrinker.GetFullText().SkipLast(columnDecrease).ToArray()));
+        return node.WithLeadingTrivia(node.GetLeadingTrivia().Select(e => e == shrinker ? shrunk : e));
+    }
+    public static T WithMoreIndentation<T>(this T node, CommonSyntaxTree tree, int columnIncrease) where T : SyntaxNode {
+        Contract.Requires(columnIncrease >= 0);
+        if (columnIncrease == 0) return node;
+        var spacing = Syntax.Whitespace(new String(' ', columnIncrease));
+        var leading = node.GetLeadingTrivia().Append(spacing);
+        return node.WithLeadingTrivia(leading);
+    }
 }
