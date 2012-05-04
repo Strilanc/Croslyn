@@ -10,3 +10,4 @@ TestResults/*
 *.ncrunchsolution.user
 *.crunchsolution.cache
 *.vbproj.user
+*.csproj.user
