@@ -383,4 +383,8 @@ public static class Analysis {
         var following = parent != null ? parent.Statements.SkipWhile(e => e != syntax).Skip(1) : new StatementSyntax[0];
         return alt.Concat(following);
     }
+    public static CommonSyntaxTree TryGetSyntaxTree(this IDocument document) {
+        CommonSyntaxTree r;
+        return document.TryGetSyntaxTree(out r) ? r : null;
+    }
 }

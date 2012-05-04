@@ -22,39 +22,34 @@ namespace Croslyn.CodeIssues {
             this.editFactory = editFactory;
         }
 
-        private int? TryGetCol(SyntaxNode node) {
-            var p = node;
-            while (true) {
-                if (node.Span.Start < p.FullSpan.Start) return null;
-                var s = p.WithTrailingTrivia(new SyntaxTrivia[0]).GetFullText().Substring(0, node.Span.Start - p.FullSpan.Start);
-                if (p.Parent == null || s.Contains('\r') || s.Contains('\n')) 
-                    return s.Split('\r', '\n').Last().Length;
-                p = p.Parent;
-            }
-        }
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {
+            var tree = document.TryGetSyntaxTree();
+            if (tree == null) return null;
             var n = (SyntaxNode)node;
             var para = node as ParameterListSyntax;
-            if (para != null) return GetIssues(document, para.Parameters, n, L => para.With(parameters: L));
+            if (para != null) return GetIssues(document, tree, para.Parameters, n, L => para.With(parameters: L));
             var arg = node as ArgumentListSyntax;
-            if (arg != null) return GetIssues(document, arg.Arguments, n, L => arg.With(arguments: L));
+            if (arg != null) return GetIssues(document, tree, arg.Arguments, n, L => arg.With(arguments: L));
             var ini = node as InitializerExpressionSyntax;
-            if (ini != null) return GetIssues(document, ini.Expressions, n, L => ini.With(expressions: L));
+            if (ini != null) return GetIssues(document, tree, ini.Expressions, n, L => ini.With(expressions: L));
             return null;
         }
         private IEnumerable<CodeIssue> GetIssues<T>(IDocument document, 
+                                                    CommonSyntaxTree tree,
                                                     SeparatedSyntaxList<T> list,
                                                     SyntaxNode container, 
                                                     Func<SeparatedSyntaxList<T>, SyntaxNode> containerWith) where T : SyntaxNode {
             if (container.GetText().Split('\r', '\n').Count() <= 1) return null;
-            if (list.Any(e => TryGetCol(e) == null)) return null;
-            var cols = list
-                       .Select(e => new { n = e, c = TryGetCol(e).Value })
-                       .GroupBy(e => e.c);
-            if (cols.Count() <= 1) return null;
-            var correctCol = TryGetCol(list.First()).Value;
+            var f = list.ToDictionary(e => e, e => {
+                var p = tree.GetLineSpan(e.Span, usePreprocessorDirectives: false).StartLinePosition;
+                return new { n = e, line = p.Line, col = p.Character };
+            });
+            if (f.Values.DistinctBy(e => e.line).Count() <= 1) return null;
+            if (f.Values.DistinctBy(e => e.col).Count() <= 1) return null;
+            
+            var correctCol = f[list.First()].col;
             var corrected = list.Select(e => {
-                var d = correctCol - TryGetCol(e).Value;
+                var d = correctCol - f[e].col;
                 if (d == 0) return e;
                 if (d > 0) return e.WithLeadingTrivia(e.GetLeadingTrivia().Append(Syntax.Whitespace(new String(' ', d))));
 
