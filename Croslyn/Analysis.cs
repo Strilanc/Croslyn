@@ -14,6 +14,11 @@ public static class Analysis {
     public static StatementSyntax[] Statements(this StatementSyntax e) {
         return e is BlockSyntax ? ((BlockSyntax)e).Statements.ToArray() : new[] { e };
     }
+    public static StatementSyntax[] CollapsedStatements(this StatementSyntax e) {
+        return e is BlockSyntax 
+             ? ((BlockSyntax)e).Statements.SelectMany(f => f.CollapsedStatements()).ToArray() 
+             : new[] { e };
+    }
 
     public static IEnumerable<IdentifierNameSyntax> ReadsOfLocalVariable(this SyntaxNode scope, IdentifierNameSyntax localVar) {
         return scope.ReadsOfLocalVariable(localVar);
@@ -24,16 +29,16 @@ public static class Analysis {
                .Where(e => e.Identifier.ValueText == localVar.ValueText);
     }
 
-    public static bool? TryLocalBoolCompare(this ExpressionSyntax expression, ExpressionSyntax other, ISemanticModel model) {
+    public static bool? TryGetAlternativeEquivalence(this ExpressionSyntax expression, ExpressionSyntax other, ISemanticModel model) {
         var val1 = expression.TryGetConstBoolValue();
         var val2 = other.TryGetConstBoolValue();
         if (val1.HasValue != val2.HasValue) return null;
         if (val1.HasValue) return val1.Value == val2.Value;
 
-        if (expression is ParenthesizedExpressionSyntax) return ((ParenthesizedExpressionSyntax)expression).Expression.TryLocalBoolCompare(other, model);
-        if (other is ParenthesizedExpressionSyntax) return expression.TryLocalBoolCompare(((ParenthesizedExpressionSyntax)other).Expression, model);
-        if (expression.Kind == SyntaxKind.LogicalNotExpression) return !((PrefixUnaryExpressionSyntax)expression).Operand.TryLocalBoolCompare(other, model);
-        if (other.Kind == SyntaxKind.LogicalNotExpression) return !expression.TryLocalBoolCompare(((PrefixUnaryExpressionSyntax)other).Operand, model);
+        if (expression is ParenthesizedExpressionSyntax) return ((ParenthesizedExpressionSyntax)expression).Expression.TryGetAlternativeEquivalence(other, model);
+        if (other is ParenthesizedExpressionSyntax) return expression.TryGetAlternativeEquivalence(((ParenthesizedExpressionSyntax)other).Expression, model);
+        if (expression.Kind == SyntaxKind.LogicalNotExpression) return !((PrefixUnaryExpressionSyntax)expression).Operand.TryGetAlternativeEquivalence(other, model);
+        if (other.Kind == SyntaxKind.LogicalNotExpression) return !expression.TryGetAlternativeEquivalence(((PrefixUnaryExpressionSyntax)other).Operand, model);
 
         if (expression.HasSideEffects(model) <= Result.FalseIfCodeFollowsConventions 
             && expression.WithoutAnyTriviaOrInternalTrivia().ToString() == other.WithoutAnyTriviaOrInternalTrivia().ToString()) 
@@ -426,6 +431,53 @@ public static class Analysis {
             return Syntax.IdentifierName(((LocalDeclarationStatementSyntax)syntax).Declaration.Variables.Single().Identifier);
         return null;
     }
+    public static bool HasMatchingLHSOrRet(this StatementSyntax expression, StatementSyntax other, ISemanticModel model) {
+        Contract.Requires(model != null);
+        if (expression == null) return false;
+        if (other == null) return false;
+        if (expression.IsReturnValue() && other.IsReturnValue()) return true;
+        var lhs1 = expression.TryGetLeftHandSideOfAssignmentOrSingleInit();
+        var lhs2 = other.TryGetLeftHandSideOfAssignmentOrSingleInit();
+        if (lhs1 == null || lhs2 == null) return false;
+        return lhs1.IsMatchingLHS(lhs2, model);
+    }
+    public static ExpressionSyntax TryGetRHSForMatchingLHSOrRet(this StatementSyntax expression, StatementSyntax other, ISemanticModel model) {
+        Contract.Requires(model != null);
+        if (!expression.HasMatchingLHSOrRet(other, model)) return null;
+        return other.TryGetRightHandSideOfAssignmentOrSingleInitOrReturnValue();
+    }
+    public static bool IsMatchingLHS(this ExpressionSyntax lhs1, ExpressionSyntax lhs2, ISemanticModel model) {
+        Contract.Requires(lhs1 != null);
+        Contract.Requires(lhs2 != null);
+        Contract.Requires(model != null);
+        
+        if (lhs1.Kind != lhs2.Kind) return false;
+        if (lhs1.HasSideEffects(model) > Result.FalseIfCodeFollowsConventions) return false;
+
+        var s1 = model.GetSemanticInfo(lhs1);
+        var s2 = model.GetSemanticInfo(lhs2);
+        if (s1.Symbol != s2.Symbol) return false;
+
+        if (lhs1 is SimpleNameSyntax) return true;
+        
+        var inv1 = lhs1 as InvocationExpressionSyntax;
+        var inv2 = lhs2 as InvocationExpressionSyntax;
+        if (inv1 != null) {
+            return inv1.Expression.IsMatchingLHS(inv2.Expression, model) 
+                && inv1.ArgumentList.Arguments.Count == inv2.ArgumentList.Arguments.Count 
+                && inv1.ArgumentList.Arguments.Zip(
+                        inv2.ArgumentList.Arguments, 
+                        (e1, e2) => e1.NameColonOpt == null 
+                                && e2.NameColonOpt == null 
+                                && e1.Expression.IsMatchingLHS(e2.Expression, model)
+                    ).All(e => e);
+        }
+        
+        if (lhs1 is MemberAccessExpressionSyntax) 
+            return ((MemberAccessExpressionSyntax)lhs1).Expression.IsMatchingLHS(((MemberAccessExpressionSyntax)lhs2).Expression, model);
+        
+        return false;
+    }
     public static StatementSyntax ElseStatementOrEmptyBlock(this IfStatementSyntax syntax) {
         Contract.Requires(syntax != null);
         return syntax.ElseOpt != null ? syntax.ElseOpt.Statement : Syntax.Block();
@@ -440,5 +492,67 @@ public static class Analysis {
     public static CommonSyntaxTree TryGetSyntaxTree(this IDocument document) {
         CommonSyntaxTree r;
         return document.TryGetSyntaxTree(out r) ? r : null;
+    }
+    public static Tuple<StatementSyntax, StatementSyntax> SS(IfStatementSyntax syntax) {
+        var trueAction = syntax.Statement;
+        if (trueAction is BlockSyntax) {
+            trueAction = trueAction.Statements().SingleOrDefaultAllowMany();
+        }
+        if (trueAction == null) return null;
+        var falseAction = syntax.ElseStatementOrEmptyBlock();
+        
+        var altStatement = syntax.ElseAndFollowingStatements().FirstOrDefault();
+    }
+
+    public static Tuple<StatementSyntax, StatementSyntax> TryGetBranchesAroundIfStatement(this IfStatementSyntax syntax, ISemanticModel model) {
+        return TryGetIfStatementBranches_BothSingle(syntax) 
+            ?? TryGetIfStatementBranches_ConditionalJump(syntax) 
+            ?? TryGetIfStatementBranches_OverwritePrev(syntax, model);
+    }
+    public static Tuple<StatementSyntax, StatementSyntax> TryGetIfStatementBranches_BothSingle(IfStatementSyntax syntax) {
+        var trueAction = syntax.Statement.CollapsedStatements().SingleOrDefaultAllowMany();
+        if (trueAction == null) return null;
+        
+        var falseAction = syntax.ElseStatementOrEmptyBlock().CollapsedStatements().SingleOrDefaultAllowMany();
+        if (falseAction == null) return null;
+        
+        return Tuple.Create(trueAction, falseAction);
+    }
+    public static Tuple<StatementSyntax, StatementSyntax> TryGetIfStatementBranches_ConditionalJump(IfStatementSyntax syntax) {
+        var trueAction = syntax.Statement.CollapsedStatements().SingleOrDefaultAllowMany();
+        if (trueAction == null) return null;
+        if (!trueAction.IsGuaranteedToJumpOut()) return null;
+
+        if (syntax.ElseOpt == null) return null;
+        var followingAction = syntax.ElseAndFollowingStatements().FirstOrDefault();
+        if (followingAction == null) return null;
+        
+        return Tuple.Create(trueAction, followingAction);
+    }
+    public static Tuple<StatementSyntax, StatementSyntax> TryGetIfStatementBranches_OverwritePrev(IfStatementSyntax syntax, ISemanticModel model) {
+        var trueAction = syntax.Statement.CollapsedStatements().SingleOrDefaultAllowMany();
+        if (trueAction == null) return null;
+
+        var prev = syntax.TryGetPrevStatement();
+        if (prev == null) return null;
+
+        if (trueAction.Overwrites(prev, model) != true) return null;
+        return Tuple.Create(trueAction, prev);
+    }
+
+    public static StatementSyntax TryGetPrevStatement(this StatementSyntax syntax) {
+        Contract.Requires(syntax != null);
+        var parent = syntax.Parent as BlockSyntax;
+        if (parent == null) return null;
+        return parent.Statements.TakeWhile(e => e != syntax).FirstOrDefault()
+            ?? parent.TryGetPrevStatement();
+    }
+    ///<summary>Determines if executing the statement is equivalent to executing the statement after the given previous statement.</summary>
+    public static bool? Overwrites(this StatementSyntax syntax, StatementSyntax prev, ISemanticModel model) {
+        if (prev.IsGuaranteedToJumpOut()) return false;
+        if (prev.HasSideEffects(model) <= Result.FalseIfCodeFollowsConventions) return true;
+
+        if (syntax.HasMatchingLHSOrRet(prev, model)) return true;
+        return false;
     }
 }

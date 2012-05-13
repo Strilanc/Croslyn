@@ -23,73 +23,60 @@ namespace Croslyn.CodeIssues {
         }
 
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {
-            var model = document.GetSemanticModel();
-
             var ifNode = (IfStatementSyntax)node;
             if (ifNode.Statement.Statements().Count() != 1) return null;
-            var parentBlock = ifNode.Parent as BlockSyntax;
-            if (parentBlock == null) return null;
-            var conditionalStatement = ifNode.Statement.Statements().Single();
-            var ifNodeIndex = parentBlock.Statements.IndexOf(ifNode);
+            var conditionalAction = ifNode.Statement.Statements().Single();
 
+            var model = document.GetSemanticModel();
             var actions = new List<ICodeAction>();
-            var trueBranchExpression = conditionalStatement.TryGetRightHandSideOfAssignmentOrSingleInitOrReturnValue();
+
+            var s = model.GetSemanticInfo(conditionalAction.TryGetLeftHandSideOfAssignmentOrSingleInit()).Symbol;
+            if (s == null) return null;
+            var dataFlow = model.AnalyzeRegionDataFlow(ifNode.Condition.Span);
+            if (dataFlow.ReadInside.Contains(s)) return null;
+            if (dataFlow.WrittenInside.Contains(s)) return null;
+
+            var trueBranchExpression = conditionalAction.TryGetRightHandSideOfAssignmentOrSingleInitOrReturnValue();
             if (trueBranchExpression == null) return null;
 
             Func<ExpressionSyntax, TrivialTransforms.Placement, StatementSyntax> foldedConditional = (falseBranchExp, placement) => {
                 var conditional = ifNode.Condition.Conditional(trueBranchExpression, falseBranchExp);
-                return conditionalStatement
+                return conditionalAction
                        .TryWithNewRightHandSideOfAssignmentOrSingleInitOrReturnValue(conditional)
                        .IncludingTriviaSurrounding(ifNode, placement);
             };
-            
-            if (conditionalStatement.IsReturnValue()) {
-                var altReturn = ifNode.ElseAndFollowingStatements().FirstOrDefault() as ReturnStatementSyntax;
-                if (altReturn == null) return null;
-                if (altReturn.ExpressionOpt == null) return null;
-                var x = foldedConditional(altReturn.ExpressionOpt, TrivialTransforms.Placement.Around)
-                        .IncludingTriviaSurrounding(altReturn, TrivialTransforms.Placement.After);
 
-                actions.Add(new ReadyCodeAction("Fold into single return", editFactory, document, parentBlock, () => parentBlock.With(statements:
-                        parentBlock.Statements.Insert(ifNodeIndex, new[] {x})
-                        .Except(new StatementSyntax[] {ifNode, altReturn})
-                        .List())));
+
+            // can fold true and false statements into single statement?
+            var alternativeStatement = ifNode.ElseStatementOrEmptyBlock().Statements().SingleOrDefaultAllowMany();
+            if (conditionalAction.HasMatchingLHSOrRet(alternativeStatement, model)) {
+                actions.Add(new ReadyCodeAction("Fold into single assignment", editFactory, document, ifNode, () => foldedConditional(alternativeStatement.TryGetRightHandSideOfAssignmentOrSingleInit(), TrivialTransforms.Placement.Around)));
             }
-            if (conditionalStatement.IsAssignment()) {
-                var lhs = conditionalStatement.TryGetLeftHandSideOfAssignmentOrSingleInit() as IdentifierNameSyntax;
-                if (lhs == null) return null;
-                
-                var dataFlow = model.AnalyzeRegionDataFlow(ifNode.Condition.Span);
-                if (dataFlow.ReadInside.Any(e => e.Name == lhs.PlainName)) return null;
-                if (dataFlow.WrittenInside.Any(e => e.Name == lhs.PlainName)) return null;
-                
-                Func<StatementSyntax, ExpressionSyntax> matchingAssignment = s => {
-                    if (s == null) return null;
-                    
-                    var lhs2 = s.TryGetLeftHandSideOfAssignmentOrSingleInit() as IdentifierNameSyntax;
-                    if (lhs2 == null) return null;
-                    if (lhs2.PlainName != lhs.PlainName) return null;
 
-                    var rhs2 = s.TryGetRightHandSideOfAssignmentOrSingleInit();
-                    if (rhs2 == null) return null;
-                    return rhs2;
-                };
+            var parentBlock = ifNode.Parent as BlockSyntax;
+            if (parentBlock != null && ifNode.ElseOpt == null) {
+                var ifNodeIndex = parentBlock.Statements.IndexOf(ifNode);
 
-                // can fold true and false statements into single statement?
-                var alternativeStatement = ifNode.ElseStatementOrEmptyBlock().Statements().SingleOrDefaultAllowMany();
-                var e1 = matchingAssignment(alternativeStatement);
-                if (e1 != null) {
-                    actions.Add(new ReadyCodeAction("Fold into single assignment", editFactory, document, ifNode, () => foldedConditional(e1, TrivialTransforms.Placement.Around)));
+                // can fold conditional return into following return?
+                if (conditionalAction.IsReturnValue()) {
+                    var altReturn = ifNode.ElseAndFollowingStatements().FirstOrDefault();
+                    var arhs = conditionalAction.TryGetRHSForMatchingLHSOrRet(altReturn, model);
+                    if (arhs == null) return null;
+                    var x = foldedConditional(arhs, TrivialTransforms.Placement.Around)
+                            .IncludingTriviaSurrounding(altReturn, TrivialTransforms.Placement.After);
+
+                    actions.Add(new ReadyCodeAction("Fold into single return", editFactory, document, parentBlock, () => parentBlock.With(statements:
+                            parentBlock.Statements.Insert(ifNodeIndex, new[] { x })
+                            .Except(new StatementSyntax[] { ifNode, altReturn })
+                            .List())));
                 }
-
-                // can fold conditional statement into preceeding statement?
+                
+                // can fold conditional assignment into preceeding assignment?
                 var preceedingStatement = ifNodeIndex >= 1 ? parentBlock.Statements[ifNodeIndex - 1] : null;
-                if (preceedingStatement is BlockSyntax) preceedingStatement = null;
-                var e2 = matchingAssignment(preceedingStatement);
-                if (ifNode.ElseOpt == null && e2 != null) {
-                    var foldedAssignment = foldedConditional(e2, TrivialTransforms.Placement.After);
+                var prhs = conditionalAction.TryGetRHSForMatchingLHSOrRet(preceedingStatement, model);
+                if (prhs != null && !preceedingStatement.IsGuaranteedToJumpOut()) {
                     actions.Add(new ReadyCodeAction("Fold into single assignment", editFactory, document, parentBlock, () => parentBlock.With(statements:
-                            parentBlock.Statements.Insert(ifNodeIndex, new[] {foldedAssignment})
+                            parentBlock.Statements.Insert(ifNodeIndex, new[] { foldedConditional(prhs, TrivialTransforms.Placement.After) })
                             .Except(new[] { preceedingStatement, ifNode })
                             .List())));
                 }

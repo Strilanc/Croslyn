@@ -30,7 +30,7 @@ namespace Croslyn.CodeIssues {
             if (model.GetSemanticInfo(ternaryNode).Type.SpecialType != SpecialType.System_Boolean) return null;
 
             var conditionNeeded = ternaryNode.Condition.HasSideEffects(model) > Analysis.Result.FalseIfCodeFollowsConventions;
-            var cmp = ternaryNode.WhenTrue.TryLocalBoolCompare(ternaryNode.WhenFalse, model);
+            var cmp = ternaryNode.WhenTrue.TryGetAlternativeEquivalence(ternaryNode.WhenFalse, model);
             if (cmp == true) {
                 var action = new ReadyCodeAction("Replace with branch", editFactory, document, ternaryNode, () => ternaryNode.WhenTrue);
                 var action2 = new ReadyCodeAction("Combine branches (keeping condition evaluation)", editFactory, document, ternaryNode, () => {

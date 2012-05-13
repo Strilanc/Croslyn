@@ -36,7 +36,7 @@ namespace Croslyn.CodeIssues {
 
             var lv = binaryNode.Left.TryGetConstBoolValue();
             var rv = binaryNode.Right.TryGetConstBoolValue();
-            var cmp = binaryNode.Left.TryLocalBoolCompare(binaryNode.Right, model);
+            var cmp = binaryNode.Left.TryGetAlternativeEquivalence(binaryNode.Right, model);
 
             var useFalse = new ReadyCodeAction("false", editFactory, document, binaryNode, () => false.AsLiteral());
             var useTrue = new ReadyCodeAction("true", editFactory, document, binaryNode, () => true.AsLiteral());

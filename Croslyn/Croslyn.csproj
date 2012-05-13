@@ -89,7 +89,7 @@
     <Compile Include="CodeIssues\ForEachToFirstLast.cs" />
     <Compile Include="CodeIssues\ForEachToWhere.cs" />
     <Compile Include="CodeIssues\ForEachToSelect.cs" />
-    <Compile Include="CodeIssues\IfToBool.cs" />
+    <Compile Include="CodeIssues\ConditionableIfStatement.cs" />
     <Compile Include="CodeIssues\UselessStatement.cs" />
     <Compile Include="CodeIssues\UnnecessaryBraces.cs" />
     <Compile Include="CodeIssues\UnnecessaryElse.cs" />
