@@ -274,4 +274,10 @@ public static class SyntaxWithEx {
                              declaration ?? syntax.Declaration,
                              semicolonToken ?? syntax.SemicolonToken);
     }
+    public static ElseClauseSyntax With(this ElseClauseSyntax syntax,
+                                        SyntaxToken? elseKeyword = null,
+                                        StatementSyntax statement = null) {
+        return syntax.Update(elseKeyword ?? syntax.ElseKeyword,
+                             statement ?? syntax.Statement);
+    }
 }

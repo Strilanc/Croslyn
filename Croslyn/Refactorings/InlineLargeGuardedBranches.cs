@@ -52,7 +52,7 @@ namespace Croslyn.Refactorings {
             }
 
             if (trueIsAGuard && preferTrue) return syntax.WithUnguardedElse();
-            if (falseIsAGuard && !preferTrue) return syntax.Flipped().WithUnguardedElse();
+            if (falseIsAGuard && !preferTrue) return syntax.Inverted().WithUnguardedElse();
             return new[] { syntax };
         }
     }

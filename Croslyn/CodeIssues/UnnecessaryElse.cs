@@ -26,7 +26,7 @@ namespace Croslyn.CodeIssues {
             var ifStatement = node as IfStatementSyntax;
             if (ifStatement == null || ifStatement.ElseOpt == null) return null;
             var withUnguardedElse = ifStatement.WithUnguardedElse();
-            var flipped = ifStatement.Flipped();
+            var flipped = ifStatement.Inverted();
             var withUnguardedElseFlip = flipped.WithUnguardedElse();
 
             var b1 = !withUnguardedElse.SequenceEqual(new[] { ifStatement });

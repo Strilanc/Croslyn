@@ -41,7 +41,7 @@ public static class Transforms {
         var b = oldStatement.Parent as BlockSyntax;
         if (b != null)
             return new ReadyCodeAction(desc, editFactory, document, b, () => b.With(statements: b.Statements.WithItemReplacedByMany(oldStatement, statements)));
-        return new ReadyCodeAction(desc, editFactory, document, oldStatement, () => Syntax.Block(Syntax.Token(SyntaxKind.OpenBraceToken), Syntax.List(statements), Syntax.Token(SyntaxKind.CloseBraceToken)));
+        return new ReadyCodeAction(desc, editFactory, document, oldStatement, () => statements.List().Block());
     }
     ///<summary>Returns an equivalent expression syntax with brackets added around it, if necessary.</summary>
     public static ExpressionSyntax Bracketed(this ExpressionSyntax e) {
@@ -56,11 +56,12 @@ public static class Transforms {
     }
 
     /// <summary>Inverts the clause of an if statement, flipping the true and false branches</summary>
-    public static IfStatementSyntax Flipped(this IfStatementSyntax e) {
+    public static IfStatementSyntax Inverted(this IfStatementSyntax e) {
         Contract.Requires(e != null);
-        var trueBlock = e.ElseOpt == null ? Syntax.Block() : e.ElseOpt.Statement;
-        var falseBlock = e.ElseOpt == null ? Syntax.ElseClause(statement: e.Statement) : e.ElseOpt.Update(e.ElseOpt.ElseKeyword, e.Statement);
-        return e.Update(e.IfKeyword, e.OpenParenToken, e.Condition.Inverted(), e.CloseParenToken, trueBlock, falseBlock);
+        return e.With(
+            condition: e.Condition.Inverted(), 
+            statement: e.ElseStatementOrEmptyBlock(),
+            elseOpt: (e.ElseOpt ?? Syntax.ElseClause()).With(statement: e.Statement));
     }
 
     public static SyntaxList<T> WithItemReplacedByMany<T>(this SyntaxList<T> items, T replacedNode, IEnumerable<T> newNodes) where T : SyntaxNode {
@@ -69,12 +70,12 @@ public static class Transforms {
         Contract.Requires(newNodes != null);
         Contract.Requires(items.Contains(replacedNode));
         var i = items.IndexOf(replacedNode);
-        return Syntax.List(items.Take(i).Concat(newNodes).Concat(items.Skip(i + 1)));
+        return items.TakeSkipPutTake(i, 1, newNodes).List();
     }
     public static StatementSyntax BracedTo(this StatementSyntax replacedNode, IEnumerable<StatementSyntax> newNodesIter) {
         if (replacedNode is BlockSyntax)
-            return (replacedNode as BlockSyntax).With(statements: Syntax.List<StatementSyntax>(newNodesIter));
-        return Syntax.Block(Syntax.Token(SyntaxKind.OpenBraceToken), Syntax.List<StatementSyntax>(newNodesIter), Syntax.Token(SyntaxKind.CloseBraceToken));
+            return (replacedNode as BlockSyntax).With(statements: newNodesIter.List());
+        return newNodesIter.List().Block();
     }
     public static IEnumerable<StatementSyntax> WithUnguardedElse(this IfStatementSyntax e) {
         if (e.ElseOpt == null) return new[] { e };
@@ -105,7 +106,7 @@ public static class Transforms {
     /// <summary>Drops a node from its parent by replacing it with null or an empty equivalent.</summary>
     public static StatementSyntax Dropped(this StatementSyntax statement) {
         if (statement.Parent is BlockSyntax) return null;
-        return Syntax.EmptyStatement(Syntax.Token(SyntaxKind.SemicolonToken));
+        return Syntax.EmptyStatement(SyntaxKind.SemicolonToken.AsToken());
     }
     /// <summary>Drops a node from its parent by replacing it with null or an empty equivalent.</summary>
     public static MethodDeclarationSyntax Dropped(this MethodDeclarationSyntax method) {

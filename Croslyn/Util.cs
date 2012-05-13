@@ -14,6 +14,9 @@ public static class Util {
         return sequence.Take(insertPosition).Concat(items).Concat(sequence.Skip(insertPosition));
     }
     public static IEnumerable<T> TakeSkipTake<T>(this IEnumerable<T> sequence, int take, int skip) {
+        return TakeSkipPutTake(sequence, take, skip, null);
+    }
+    public static IEnumerable<T> TakeSkipPutTake<T>(this IEnumerable<T> sequence, int take, int skip, IEnumerable<T> put) {
         Contract.Requires(take >= 0);
         Contract.Requires(skip >= 0);
         foreach (var e in sequence) {
@@ -24,6 +27,12 @@ public static class Util {
                 skip -= 1;
             } else {
                 yield return e;
+            }
+
+            if (take == 0 && skip == 0 && put != null) {
+                foreach (var e2 in put)
+                    yield return e2;
+                put = null;
             }
         }
     }

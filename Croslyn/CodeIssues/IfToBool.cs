@@ -31,6 +31,7 @@ namespace Croslyn.CodeIssues {
             var parentBlock = ifNode.Parent as BlockSyntax;
             if (parentBlock == null) return null;
             var conditionalStatement = ifNode.Statement.Statements().Single();
+            var ifNodeIndex = parentBlock.Statements.IndexOf(ifNode);
 
             var actions = new List<ICodeAction>();
             var rhs = conditionalStatement.TryGetRightHandSideOfAssignmentOrSingleInitOrReturnValue();
@@ -53,9 +54,8 @@ namespace Croslyn.CodeIssues {
                 if (altReturn.ExpressionOpt.Kind != oppKind) return null;
 
                 actions.Add(new ReadyCodeAction("Fold into single return", editFactory, document, parentBlock, () => parentBlock.With(statements:
-                        parentBlock.Statements.TakeWhile(e => e != ifNode)
-                        .Append(foldedConditional.IncludingTriviaSurrounding(altReturn, TrivialTransforms.Placement.After))
-                        .Concat(parentBlock.Statements.SkipWhile(e => e != ifNode).SkipWhile(e => e == ifNode || e == altReturn))
+                        parentBlock.Statements.Insert(ifNodeIndex, new[] {foldedConditional.IncludingTriviaSurrounding(altReturn, TrivialTransforms.Placement.After)})
+                        .Except(new StatementSyntax[] {ifNode, altReturn})
                         .List())));
             }
             if (conditionalStatement.IsAssignment()) {
@@ -76,21 +76,22 @@ namespace Croslyn.CodeIssues {
                         && rhs2.Kind == oppKind;
                 };
 
+                // can fold true and false statements into single statement?
                 var alternativeStatement = ifNode.ElseStatementOrEmptyBlock().Statements().SingleOrDefaultAllowMany();
-                var preceedingStatement = parentBlock.Statements.TakeWhile(e => e != ifNode).LastOrDefault();
-                if (preceedingStatement is BlockSyntax) preceedingStatement = null;
-
                 if (isMatchingAssignment(alternativeStatement)) {
                     actions.Add(new ReadyCodeAction("Fold into single assignment", editFactory, document, ifNode, () => foldedConditional));
                 }
-                if (isMatchingAssignment(preceedingStatement)) {
+
+                // can fold conditional statement into preceeding statement?
+                var preceedingStatement = ifNodeIndex >= 1 ? parentBlock.Statements[ifNodeIndex - 1] : null;
+                if (preceedingStatement is BlockSyntax) preceedingStatement = null;
+                if (ifNode.ElseOpt == null && isMatchingAssignment(preceedingStatement)) {
                     var foldedAssignment = preceedingStatement
                                            .TryWithNewRightHandSideOfAssignmentOrSingleInit(cond)
                                            .IncludingTriviaSurrounding(ifNode, TrivialTransforms.Placement.After);
-                    actions.Add(new ReadyCodeAction("Fold into single assignment", editFactory, document, parentBlock, () => parentBlock.With(statements: 
-                            parentBlock.Statements.TakeWhile(e => e != preceedingStatement)
-                            .Append(foldedAssignment)
-                            .Concat(parentBlock.Statements.SkipWhile(e => e != preceedingStatement).Skip(2))
+                    actions.Add(new ReadyCodeAction("Fold into single assignment", editFactory, document, parentBlock, () => parentBlock.With(statements:
+                            parentBlock.Statements.Insert(ifNodeIndex, new[] {foldedAssignment})
+                            .Except(new[] { preceedingStatement, ifNode })
                             .List())));
                 }
             }
