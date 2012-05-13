@@ -323,6 +323,29 @@ public static class Analysis {
     public static bool IsReadOnly(this FieldDeclarationSyntax syntax) {
         return syntax.Modifiers.Any(e => e.Kind == SyntaxKind.ReadOnlyKeyword);
     }
+    public static bool IsInternalProtected(this FieldDeclarationSyntax syntax) {
+        return syntax.IsProtected() && syntax.IsInternal();
+    }
+    /// <summary>Determines if the scope is protected (allows internal protected).</summary>
+    public static bool IsProtected(this FieldDeclarationSyntax syntax) {
+        return syntax.Modifiers.Any(e => e.Kind == SyntaxKind.ProtectedKeyword);
+    }
+    /// <summary>Determines if the scope is protected (does not allow internal protected).</summary>
+    public static bool IsProtectedExactly(this FieldDeclarationSyntax syntax) {
+        return syntax.IsProtected() && !syntax.IsInternal();
+    }
+    /// <summary>Determines if the scope is internal (allows internal protected).</summary>
+    public static bool IsInternal(this FieldDeclarationSyntax syntax) {
+        return syntax.Modifiers.Any(e => e.Kind == SyntaxKind.InternalKeyword);
+    }
+    /// <summary>Determines if the scope is internal (does not allow internal protected).</summary>
+    public static bool IsInternalExactly(this FieldDeclarationSyntax syntax) {
+        return syntax.IsInternal() && !syntax.IsProtected();
+    }
+    public static bool IsPrivate(this FieldDeclarationSyntax syntax) {
+        if (syntax.Modifiers.Any(e => e.Kind == SyntaxKind.PrivateKeyword)) return true;
+        return !syntax.IsProtected() && !syntax.IsPublic() && !syntax.IsInternal();
+    }
     public static bool IsPublic(this FieldDeclarationSyntax syntax) {
         return syntax.Modifiers.Any(e => e.Kind == SyntaxKind.PublicKeyword);
     }

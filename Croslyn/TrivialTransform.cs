@@ -6,6 +6,7 @@ using Roslyn.Compilers.CSharp;
 using System.Diagnostics.Contracts;
 using Roslyn.Services;
 using Roslyn.Compilers.Common;
+using LinqToCollections.Extra;
 using Strilbrary.Collections;
 using Strilbrary.Values;
 using Roslyn.Services.Editor;
@@ -124,5 +125,19 @@ public static class TrivialTransforms {
         if (syntax.IsReturnValue())
             return ((ReturnStatementSyntax)syntax).With(expressionOpt: new Renullable<ExpressionSyntax>(rhs));
         return syntax.TryWithNewRightHandSideOfAssignmentOrSingleInit(rhs);
+    }
+    public static SyntaxToken AsToken(this SyntaxKind kind) {
+        return Syntax.Token(kind);
+    }
+    public static SyntaxTokenList AsTokenList(this IEnumerable<SyntaxToken> tokens) {
+        return Syntax.TokenList(tokens);
+    }
+    public static IEnumerable<SyntaxToken> Seperators<T>(this SeparatedSyntaxList<T> list) where T : SyntaxNode {
+        return list.SeparatorCount.Range().Select(e => list.GetSeparator(e));
+    }
+    public static SeparatedSyntaxList<T> Without<T>(this SeparatedSyntaxList<T> list, T item) where T : SyntaxNode {
+        Contract.Requires(list.Contains(item));
+        var i = list.IndexOf(item);
+        return list.With(list.TakeSkipTake(i, 1), list.Seperators().TakeSkipTake(i, 1));
     }
 }

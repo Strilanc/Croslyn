@@ -258,10 +258,20 @@ public static class SyntaxWithEx {
                                                  IEnumerable<T> nodes = null,
                                                  IEnumerable<SyntaxToken> seps = null) where T : SyntaxNode {
         return Syntax.SeparatedList(nodes ?? syntax.AsEnumerable(),
-                                    seps ?? Enumerable.Range(0, syntax.SeparatorCount).Select(e => syntax.GetSeparator(e)));
+                                    seps ?? syntax.Seperators());
     }
     public static SyntaxList<T> With<T>(this SyntaxList<T> syntax,
                                         IEnumerable<T> nodes = null) where T : SyntaxNode {
         return nodes == null ? syntax : Syntax.List(nodes);
+    }
+    public static FieldDeclarationSyntax With(this FieldDeclarationSyntax syntax,
+                                              SyntaxList<AttributeDeclarationSyntax>? attributes = null,
+                                              SyntaxTokenList? modifiers = null,
+                                              VariableDeclarationSyntax declaration = null,
+                                              SyntaxToken? semicolonToken = null) {
+        return syntax.Update(attributes ?? syntax.Attributes,
+                             modifiers ?? syntax.Modifiers,
+                             declaration ?? syntax.Declaration,
+                             semicolonToken ?? syntax.SemicolonToken);
     }
 }
