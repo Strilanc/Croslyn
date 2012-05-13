@@ -11,6 +11,7 @@ using Strilbrary.Collections;
 using Roslyn.Compilers.Common;
 using System.Diagnostics.Contracts;
 using Strilbrary.Values;
+using LinqToCollections.Set;
 
 namespace Croslyn.CodeIssues {
     [ExportSyntaxNodeCodeIssueProvider("Croslyn", LanguageNames.CSharp, typeof(FieldDeclarationSyntax))]
@@ -33,6 +34,7 @@ namespace Croslyn.CodeIssues {
 
             var classDecl = fieldNode.Ancestors().OfType<ClassDeclarationSyntax>().FirstOrDefault();
             if (classDecl == null) return null;
+            var constructors = classDecl.Members.OfType<ConstructorDeclarationSyntax>().ToRet();
 
             var modsWithReadOnly = fieldNode.Modifiers.Append(SyntaxKind.ReadOnlyKeyword.AsToken()).AsTokenList();
 
@@ -42,8 +44,7 @@ namespace Croslyn.CodeIssues {
             
             var unmutatedVars = fieldNode.Declaration.Variables.Where(v => {
                 var field = model.GetDeclaredSymbol(v);
-                if (scopes.Any(c => c.Item1.DescendentNodes().OfType<StatementSyntax>().Any(e => SurfaceWritesTo(e, c.Item2, field)))) return false;
-                if (scopes.Any(c => c.Item1.DescendentNodes().OfType<ExpressionStatementSyntax>().Any(e => SurfaceWritesTo(e, c.Item2, field)))) return false;
+                if (scopes.Any(c => c.Item1.DescendentNodes(e => !constructors.Contains(e)).OfType<ExpressionSyntax>().Any(e => SurfaceWritesTo(e, c.Item2, field)))) return false;
                 return true;
             }).ToArray();
 
@@ -67,21 +68,20 @@ namespace Croslyn.CodeIssues {
                 return new CodeIssue(CodeIssue.Severity.Warning, v.Identifier.Span, "Mutable field is never modified.", new[] { action });
             }).ToArray();
         }
-        private bool SurfaceWritesTo(StatementSyntax statement, ISemanticModel model, ISymbol target) {
-            if (!statement.IsAssignment()) return false;
-            var r = statement.TryGetLeftHandSideOfAssignmentOrSingleInit();
-            if (r == null) return false;
-            var i = model.GetSemanticInfo(r);
-            return i.Symbol == target || i.CandidateSymbols.Contains(target);
-        }
         private bool SurfaceWritesTo(ExpressionSyntax expression, ISemanticModel model, ISymbol target) {
             var r = expression as InvocationExpressionSyntax;
-            return r != null
-                && r.ArgumentList.Arguments
+            if (r != null) {
+                return r.ArgumentList.Arguments
                     .Where(e => e.RefOrOutKeywordOpt != null)
                     .Select(e => model.GetSemanticInfo(e))
                     .Where(e => e.Symbol == target || e.CandidateSymbols.Contains(target))
                     .Any();
+            }
+            if (Analysis.AssignmentOperatorKinds.Contains(expression.Kind)) {
+                var i = model.GetSemanticInfo(((BinaryExpressionSyntax)expression).Left);
+                return i.Symbol == target || i.CandidateSymbols.Contains(target);
+            }
+            return false;
         }
 
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxToken token, CancellationToken cancellationToken) {

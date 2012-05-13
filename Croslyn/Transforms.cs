@@ -186,4 +186,10 @@ public static class Transforms {
         var leading = node.GetLeadingTrivia().Append(spacing);
         return node.WithLeadingTrivia(leading);
     }
+    public static T WithoutTrivia<T>(this T node) where T : SyntaxNode {
+        return node.WithLeadingTrivia().WithTrailingTrivia();
+    }
+    public static T WithoutAnyTriviaOrInternalTrivia<T>(this T node) where T : SyntaxNode {
+        return node.ReplaceNodes(node.DescendentNodesAndSelf(), (e, a) => a.WithoutTrivia());
+    }
 }

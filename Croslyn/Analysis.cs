@@ -24,6 +24,31 @@ public static class Analysis {
                .Where(e => e.Identifier.ValueText == localVar.ValueText);
     }
 
+    public static bool? TryLocalBoolCompare(this ExpressionSyntax expression, ExpressionSyntax other, ISemanticModel model) {
+        var val1 = expression.TryGetConstBoolValue();
+        var val2 = other.TryGetConstBoolValue();
+        if (val1.HasValue != val2.HasValue) return null;
+        if (val1.HasValue) return val1.Value == val2.Value;
+
+        if (expression is ParenthesizedExpressionSyntax) return ((ParenthesizedExpressionSyntax)expression).Expression.TryLocalBoolCompare(other, model);
+        if (other is ParenthesizedExpressionSyntax) return expression.TryLocalBoolCompare(((ParenthesizedExpressionSyntax)other).Expression, model);
+        if (expression.Kind == SyntaxKind.LogicalNotExpression) return !((PrefixUnaryExpressionSyntax)expression).Operand.TryLocalBoolCompare(other, model);
+        if (other.Kind == SyntaxKind.LogicalNotExpression) return !expression.TryLocalBoolCompare(((PrefixUnaryExpressionSyntax)other).Operand, model);
+
+        if (expression.HasSideEffects(model) <= Result.FalseIfCodeFollowsConventions 
+            && expression.WithoutAnyTriviaOrInternalTrivia().ToString() == other.WithoutAnyTriviaOrInternalTrivia().ToString()) 
+            return true;
+        
+        return null;
+    }
+    public static bool? TryGetConstBoolValue(this ExpressionSyntax expression) {
+        if (expression.Kind == SyntaxKind.TrueLiteralExpression) return true;
+        if (expression.Kind == SyntaxKind.FalseLiteralExpression) return false;
+        if (expression is ParenthesizedExpressionSyntax) return ((ParenthesizedExpressionSyntax)expression).Expression.TryGetConstBoolValue();
+        if (expression.Kind == SyntaxKind.LogicalNotExpression) return !((PrefixUnaryExpressionSyntax)expression).Operand.TryGetConstBoolValue();
+        return null;
+    }
+
     public static String TryGetCodeBlockOrAreaDescription(this SyntaxNode e) {
         if (e is ClassDeclarationSyntax) return "Class";
         if (e is MethodDeclarationSyntax) return ((MethodDeclarationSyntax)e).BodyOpt == null ? null : "Method";
@@ -56,6 +81,11 @@ public static class Analysis {
             if (b.Left is IdentifierNameSyntax) return b.Right.IsLoopVarFirstpotent(loopVarReads, model);
         }
         return Result.Unknown;
+    }
+    public static bool DefinitelyHasBooleanType(this ExpressionSyntax expression, ISemanticModel model) {
+        var type = model.GetSemanticInfo(expression).Type;
+        if (type == null) return false;
+        return type.SpecialType == SpecialType.System_Boolean;
     }
     public static Result IsLoopVarFirstpotent(this StatementSyntax syntax, IEnumerable<ExpressionSyntax> loopVarReads, ISemanticModel model = null) {
         if (syntax is BlockSyntax) {
@@ -160,7 +190,21 @@ public static class Analysis {
         return (Result)Math.Min((int)v1, (int)v2);
     }
 
+    public static readonly IEnumerable<SyntaxKind> AssignmentOperatorKinds = new SyntaxKind[] {
+                SyntaxKind.AddAssignExpression,
+                SyntaxKind.AndAssignExpression,
+                SyntaxKind.AssignExpression,
+                SyntaxKind.DivideAssignExpression,
+                SyntaxKind.ExclusiveOrAssignExpression,
+                SyntaxKind.LeftShiftAssignExpression,
+                SyntaxKind.ModuloAssignExpression,
+                SyntaxKind.MultiplyAssignExpression,
+                SyntaxKind.OrAssignExpression,
+                SyntaxKind.RightShiftAssignExpression,
+                SyntaxKind.SubtractAssignExpression,
+            };
     public static Result HasSideEffects(this ExpressionSyntax expression, ISemanticModel model = null) {
+        if (expression is IdentifierNameSyntax) return Result.False;
         if (expression is LiteralExpressionSyntax) return Result.False;
         if (expression is DefaultExpressionSyntax) return Result.False;
         if (expression is MemberAccessExpressionSyntax) {
@@ -205,20 +249,7 @@ public static class Analysis {
                 SyntaxKind.LeftShiftExpression,
                 SyntaxKind.RightShiftExpression,
             };
-            var unsafeOperators = new SyntaxKind[] {
-                SyntaxKind.AddAssignExpression,
-                SyntaxKind.AndAssignExpression,
-                SyntaxKind.AssignExpression,
-                SyntaxKind.DivideAssignExpression,
-                SyntaxKind.ExclusiveOrAssignExpression,
-                SyntaxKind.LeftShiftAssignExpression,
-                SyntaxKind.ModuloAssignExpression,
-                SyntaxKind.MultiplyAssignExpression,
-                SyntaxKind.OrAssignExpression,
-                SyntaxKind.RightShiftAssignExpression,
-                SyntaxKind.SubtractAssignExpression,
-            };
-            if (unsafeOperators.Contains(b.Kind)) return Result.True;
+            if (AssignmentOperatorKinds.Contains(b.Kind)) return Result.True;
             var op = shouldBeSafeOperators.Contains(b.Kind) ? Result.FalseIfCodeFollowsConventions : Result.Unknown;
             return Enumerable.Max(new[] { op, b.Left.HasSideEffects(model), b.Right.HasSideEffects(model) });
         }

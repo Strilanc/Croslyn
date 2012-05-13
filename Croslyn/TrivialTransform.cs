@@ -88,6 +88,15 @@ public static class TrivialTransforms {
     public static ExpressionSyntax BOpEquals(this ExpressionSyntax lhs, ExpressionSyntax rhs) {
         return Syntax.BinaryExpression(SyntaxKind.EqualsExpression, lhs, Syntax.Token(SyntaxKind.EqualsEqualsToken), rhs);
     }
+    public static ExpressionSyntax BOpXor(this ExpressionSyntax lhs, ExpressionSyntax rhs) {
+        return Syntax.BinaryExpression(SyntaxKind.ExclusiveOrExpression, lhs, Syntax.Token(SyntaxKind.CaretToken), rhs);
+    }
+    public static ExpressionSyntax BOpLogicalAnd(this ExpressionSyntax lhs, ExpressionSyntax rhs) {
+        return Syntax.BinaryExpression(SyntaxKind.LogicalAndExpression, lhs, Syntax.Token(SyntaxKind.AmpersandAmpersandToken), rhs);
+    }
+    public static ExpressionSyntax BOpLogicalOr(this ExpressionSyntax lhs, ExpressionSyntax rhs) {
+        return Syntax.BinaryExpression(SyntaxKind.LogicalOrExpression, lhs, Syntax.Token(SyntaxKind.BarBarToken), rhs);
+    }
     public static ExpressionSyntax BOpAssigned(this ExpressionSyntax lhs, ExpressionSyntax rhs) {
         return Syntax.BinaryExpression(SyntaxKind.AssignExpression, lhs, Syntax.Token(SyntaxKind.EqualsToken), rhs);
     }

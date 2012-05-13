@@ -80,6 +80,8 @@
   <ItemGroup>
     <Compile Include="Analysis.cs" />
     <Compile Include="CodeAction.cs" />
+    <Compile Include="CodeIssues\RedundantBooleanExpression.cs" />
+    <Compile Include="CodeIssues\TernaryToBool.cs" />
     <Compile Include="CodeIssues\UnnecessaryMutability.cs" />
     <Compile Include="CodeIssues\UselessBranch.cs" />
     <Compile Include="CodeIssues\InconsistentAlignment.cs" />
