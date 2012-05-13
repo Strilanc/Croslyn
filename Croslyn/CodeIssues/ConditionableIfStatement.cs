@@ -14,11 +14,11 @@ using Strilbrary.Values;
 
 namespace Croslyn.CodeIssues {
     [ExportSyntaxNodeCodeIssueProvider("Croslyn", LanguageNames.CSharp, typeof(IfStatementSyntax))]
-    internal class IfToBool : ICodeIssueProvider {
+    internal class ConditionableIfStatement : ICodeIssueProvider {
         private readonly ICodeActionEditFactory editFactory;
 
         [ImportingConstructor]
-        internal IfToBool(ICodeActionEditFactory editFactory) {
+        internal ConditionableIfStatement(ICodeActionEditFactory editFactory) {
             this.editFactory = editFactory;
         }
 
