@@ -11,8 +11,15 @@ using Strilbrary.Values;
 using Roslyn.Services.Editor;
 
 public static class Transforms {
+    public static LiteralExpressionSyntax AsLiteral(this bool b) {
+        return Syntax.LiteralExpression(b ? SyntaxKind.TrueLiteralExpression : SyntaxKind.FalseLiteralExpression);
+    }
+
     ///<summary>Returns an expression syntax that is the logical inverse of the given expression syntax.</summary>
     public static ExpressionSyntax Inverted(this ExpressionSyntax e) {
+        var cv = e.TryGetConstBoolValue();
+        if (cv != null) cv.Value.AsLiteral();
+        
         var b = e as BinaryExpressionSyntax;
         if (b != null) {
             var inverseOperators = new[] {
@@ -44,8 +51,8 @@ public static class Transforms {
         return new ReadyCodeAction(desc, editFactory, document, oldStatement, () => statements.List().Block());
     }
     ///<summary>Returns an equivalent expression syntax with brackets added around it, if necessary.</summary>
-    public static ExpressionSyntax Bracketed(this ExpressionSyntax e) {
-        return e is ParenthesizedExpressionSyntax ? e : Syntax.ParenthesizedExpression(expression: e);
+    public static ParenthesizedExpressionSyntax Bracketed(this ExpressionSyntax e) {
+        return e as ParenthesizedExpressionSyntax ?? Syntax.ParenthesizedExpression(expression: e);
     }
 
     ///<summary>The statements in a block statement or, if not a block statement, the single statement.</summary>
