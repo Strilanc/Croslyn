@@ -38,8 +38,8 @@ namespace Croslyn.CodeIssues {
             var rv = binaryNode.Right.TryGetConstBoolValue();
             var cmp = binaryNode.Left.TryLocalBoolCompare(binaryNode.Right, model);
 
-            var useFalse = new ReadyCodeAction("false", editFactory, document, binaryNode, () => Syntax.LiteralExpression(SyntaxKind.FalseLiteralExpression));
-            var useTrue = new ReadyCodeAction("true", editFactory, document, binaryNode, () => Syntax.LiteralExpression(SyntaxKind.TrueLiteralExpression));
+            var useFalse = new ReadyCodeAction("false", editFactory, document, binaryNode, () => false.AsLiteral());
+            var useTrue = new ReadyCodeAction("true", editFactory, document, binaryNode, () => true.AsLiteral());
             var useRight = new ReadyCodeAction("rhs", editFactory, document, binaryNode, () => binaryNode.Right);
             var useInvertedRight = new ReadyCodeAction("!rhs", editFactory, document, binaryNode, () => binaryNode.Right.Inverted());
             var useLeft = new ReadyCodeAction("lhs", editFactory, document, binaryNode, () => binaryNode.Left);

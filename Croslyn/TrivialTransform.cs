@@ -78,9 +78,15 @@ public static class TrivialTransforms {
     }
     public static IfStatementSyntax IfThen(this ExpressionSyntax condition, StatementSyntax conditionalAction, StatementSyntax alternativeAction = null) {
         return Syntax.IfStatement(
-            condition: condition, 
-            statement: conditionalAction, 
+            condition: condition,
+            statement: conditionalAction,
             elseOpt: alternativeAction == null ? null : Syntax.ElseClause(statement: alternativeAction));
+    }
+    public static ConditionalExpressionSyntax Conditional(this ExpressionSyntax condition, ExpressionSyntax whenTrue, ExpressionSyntax whenFalse) {
+        return Syntax.ConditionalExpression(
+            condition: condition,
+            whenTrue: whenTrue,
+            whenFalse: whenFalse);
     }
     public static ExpressionSyntax BOpNotEquals(this ExpressionSyntax lhs, ExpressionSyntax rhs) {
         return Syntax.BinaryExpression(SyntaxKind.NotEqualsExpression, lhs, Syntax.Token(SyntaxKind.ExclamationEqualsToken), rhs);
