@@ -58,6 +58,13 @@ public static class Transforms {
     public static ParenthesizedExpressionSyntax Bracketed(this ExpressionSyntax e) {
         return e as ParenthesizedExpressionSyntax ?? Syntax.ParenthesizedExpression(expression: e);
     }
+    public static ExpressionSyntax BracketedOrProtected(this ExpressionSyntax e) {
+        if (e is LiteralExpressionSyntax) return e;
+        if (e is InvocationExpressionSyntax) return e;
+        if (e is MemberAccessExpressionSyntax) return e;
+        if (e is SimpleNameSyntax) return e;
+        return e.Bracketed();
+    }
 
     ///<summary>The statements in a block statement or, if not a block statement, the single statement.</summary>
     public static StatementSyntax BlockToSingleStatement(this StatementSyntax e) {
