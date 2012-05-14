@@ -24,31 +24,31 @@ namespace Croslyn.CodeIssues {
 
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {
             var forLoop = (ForEachStatementSyntax)node;
-            var model = document.TryGetSemanticModel();
-            if (model == null) return null;
+            var model = document.GetSemanticModel();
 
-            var body = forLoop.Statement.Statements();
-            if (body.None()) return null;
+            // loop body idempotent and independent of the iterator?
+            if (forLoop.Statement.ReadsOfLocalVariable(forLoop.Identifier).Any()) return null;
+            if (forLoop.Statement.IsLoopVarFirstpotent(model) < Analysis.Result.TrueIfCodeFollowsConventions) return null;
 
-            var bodyWithoutJump = body.SkipLast(body.Last().IsIntraLoopJump() ? 1 : 0);
-            if (bodyWithoutJump.Any(e => e.HasTopLevelIntraLoopJumps())) return null;
+            // build replacement if statement, if possible
+            var loopStatements = forLoop.Statement.Statements();
+            if (loopStatements.None()) return null;
+            var ifBody = loopStatements.SkipLast(loopStatements.Last().IsIntraLoopJump() ? 1 : 0).Block();
+            if (ifBody.HasTopLevelIntraLoopJumps()) return null;
+            var ifCondition = forLoop.Expression.Accessing("Any").Invoking();
+            var rawReplacement = Syntax.IfStatement(
+                condition: ifCondition,
+                statement: ifBody);
+            var replacement = rawReplacement.IncludingTriviaSurrounding(forLoop, TrivialTransforms.Placement.Around);
 
-            var iteratorReads = forLoop.Statement.ReadsOfLocalVariable(forLoop.Identifier).ToArray();
-            if (iteratorReads.Length > 0) return null;
-            if (forLoop.Statement.IsLoopVarFirstpotent(iteratorReads, model) < Analysis.Result.TrueIfCodeFollowsConventions) return null;
-
-            var ifAnyStatement = Syntax.IfStatement(
-                condition: forLoop.Expression.Accessing("Any").Invoking(),
-                statement: bodyWithoutJump.Block());
-
-            var toIfAnyStatement = new ReadyCodeAction(
+            // expose as code action/issue
+            var action = new ReadyCodeAction(
                 "Execute once if any",
                 editFactory,
                 document,
                 forLoop,
-                () => ifAnyStatement.IncludingTriviaSurrounding(forLoop, TrivialTransforms.Placement.Around));
-
-            return toIfAnyStatement.CodeIssues1(
+                () => replacement);
+            return action.CodeIssues1(
                 CodeIssue.Severity.Warning,
                 forLoop.ForEachKeyword.Span,
                 "'For each' loop body is idempotent.");

@@ -36,7 +36,7 @@ namespace Croslyn.CodeIssues {
             var iterReads = forLoop.Statement.ReadsOfLocalVariable(forLoop.Identifier).ToArray();
             if (iterReads.Length == 0) return null;
 
-            var firstSufficient = forLoop.Statement.IsLoopVarFirstpotent(iterReads, model);
+            var firstSufficient = forLoop.Statement.IsLoopVarFirstpotent(model, iterReads);
             var lastSufficient = forLoop.Statement.IsLoopVarLastpotent(iterReads, model);
 
             var iterator = model.AnalyzeRegionDataFlow(forLoop.Statement.Span).ReadInside.First(e => e.Name == forLoop.Identifier.ValueText);

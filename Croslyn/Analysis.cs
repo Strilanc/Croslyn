@@ -78,12 +78,12 @@ public static class Analysis {
         if (b != null) return b.Statements.Count > 0 && b.Statements.Last().IsGuaranteedToJumpOut(includeContinue);
         return false;
     }
-    public static Result IsLoopVarFirstpotent(this ExpressionSyntax syntax, IEnumerable<ExpressionSyntax> loopVarReads, ISemanticModel model = null) {
-        if (loopVarReads.Contains(syntax)) return Result.False;
+    public static Result IsLoopVarFirstpotent(this ExpressionSyntax syntax, ISemanticModel model = null, IEnumerable<ExpressionSyntax> loopVarReads = null) {
+        if (loopVarReads != null && loopVarReads.Contains(syntax)) return Result.False;
         if (syntax is LiteralExpressionSyntax) return Result.True;
         if (syntax.Kind == SyntaxKind.AssignExpression) {
             var b = (BinaryExpressionSyntax)syntax;
-            if (b.Left is IdentifierNameSyntax) return b.Right.IsLoopVarFirstpotent(loopVarReads, model);
+            if (b.Left is IdentifierNameSyntax) return b.Right.IsLoopVarFirstpotent(model, loopVarReads);
         }
         return Result.Unknown;
     }
@@ -92,16 +92,16 @@ public static class Analysis {
         if (type == null) return false;
         return type.SpecialType == SpecialType.System_Boolean;
     }
-    public static Result IsLoopVarFirstpotent(this StatementSyntax syntax, IEnumerable<ExpressionSyntax> loopVarReads, ISemanticModel model = null) {
+    public static Result IsLoopVarFirstpotent(this StatementSyntax syntax, ISemanticModel model = null, IEnumerable<ExpressionSyntax> loopVarReads = null) {
         if (syntax is BlockSyntax) {
             if (syntax.IsGuaranteedToJumpOut(includeContinue: false)) return Result.True;
-            return syntax.Statements().Min(e => e.IsLoopVarFirstpotent(loopVarReads, model));
+            return syntax.Statements().Min(e => e.IsLoopVarFirstpotent(model, loopVarReads));
         }
         if (syntax is ReturnStatementSyntax) return Result.True;
         if (syntax is BreakStatementSyntax) return Result.True;
         if (syntax is ContinueStatementSyntax) return Result.True;
         if (syntax is ThrowStatementSyntax) return Result.True;
-        if (syntax is ExpressionStatementSyntax) return ((ExpressionStatementSyntax)syntax).Expression.IsLoopVarFirstpotent(loopVarReads, model);
+        if (syntax is ExpressionStatementSyntax) return ((ExpressionStatementSyntax)syntax).Expression.IsLoopVarFirstpotent(model, loopVarReads);
         return Result.Unknown;
     }
     public static Result IsLoopVarLastpotent(this ExpressionSyntax syntax, IEnumerable<ExpressionSyntax> loopVarReads, ISemanticModel model = null) {
@@ -127,7 +127,7 @@ public static class Analysis {
     }
     public static bool HasTopLevelIntraLoopJumps(this StatementSyntax syntax) {
         Contract.Requires(syntax != null);
-        return syntax.DescendentNodesAndSelf(e => e.IsLoopStatement()).Any(e => e.IsIntraLoopJump());
+        return syntax.DescendentNodesAndSelf(e => !e.IsLoopStatement()).Any(e => e.IsIntraLoopJump());
     }
     public static bool IsIntraLoopJump(this SyntaxNode syntax) {
         Contract.Requires(syntax != null);
