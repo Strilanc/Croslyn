@@ -14,11 +14,11 @@ using Strilbrary.Values;
 
 namespace Croslyn.CodeIssues {
     [ExportSyntaxNodeCodeIssueProvider("Croslyn", LanguageNames.CSharp, typeof(BinaryExpressionSyntax))]
-    internal class RedundantBooleanExpression : ICodeIssueProvider {
+    internal class ReducibleBooleanExpression : ICodeIssueProvider {
         private readonly ICodeActionEditFactory editFactory;
 
         [ImportingConstructor]
-        internal RedundantBooleanExpression(ICodeActionEditFactory editFactory) {
+        internal ReducibleBooleanExpression(ICodeActionEditFactory editFactory) {
             this.editFactory = editFactory;
         }
 
