@@ -31,7 +31,7 @@ namespace Croslyn.CodeIssues {
             if (parent == null) return null;
             var preceedingStatement = parent.Statements.TakeWhile(e => e != forLoop).TakeLast(1).SingleOrDefault();
             if (!preceedingStatement.IsAssignmentOrSingleInitialization()) return null;
-            var lhs = preceedingStatement.TryGetLeftHandSideOfAssignmentOrSingleInit() as IdentifierNameSyntax;
+            var lhs = preceedingStatement.TryGetLHSExpOfAssignmentOrSingleInit() as IdentifierNameSyntax;
             var rhs = preceedingStatement.TryGetRightHandSideOfAssignmentOrSingleInit();
             if (lhs == null) return null;
             var target = lhs.Identifier;

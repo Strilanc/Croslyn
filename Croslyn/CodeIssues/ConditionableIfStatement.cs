@@ -53,8 +53,8 @@ namespace Croslyn.CodeIssues {
                 {branches.Item1, branches.Item1.Dropped()},
                 {branches.Item2, branches.Item2.Dropped()}
             };
-            var action = new ReadyCodeAction("Fold into conditional expression", editFactory, document, changes.Keys, (e, a) => changes[e]);
-            return action.CodeIssues1(CodeIssue.Severity.Warning, ifNode.IfKeyword.Span, "'If' statement can be simplified into an expression");
+            var action = new ReadyCodeAction("Fold into expression", editFactory, document, changes.Keys, (e, a) => changes[e]);
+            return action.CodeIssues1(CodeIssue.Severity.Warning, ifNode.IfKeyword.Span, "'If' statement folds into an expression");
         }
 
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxToken token, CancellationToken cancellationToken) {
