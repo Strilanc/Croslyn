@@ -14,11 +14,11 @@ using Strilbrary.Values;
 
 namespace Croslyn.CodeIssues {
     [ExportSyntaxNodeCodeIssueProvider("Croslyn", LanguageNames.CSharp, typeof(ForEachStatementSyntax))]
-    internal class ForEachToSelect : ICodeIssueProvider {
+    internal class ForEachToList : ICodeIssueProvider {
         private readonly ICodeActionEditFactory editFactory;
 
         [ImportingConstructor]
-        internal ForEachToSelect(ICodeActionEditFactory editFactory) {
+        internal ForEachToList(ICodeActionEditFactory editFactory) {
             this.editFactory = editFactory;
         }
 
@@ -27,22 +27,18 @@ namespace Croslyn.CodeIssues {
             var model = document.TryGetSemanticModel();
             if (model == null) return null;
 
-            var parent = forLoop.Parent as BlockSyntax;
-            if (parent == null) return null;
-            var preceedingStatement = parent.Statements.TakeWhile(e => e != forLoop).TakeLast(1).SingleOrDefault();
-            if (!preceedingStatement.IsAssignmentOrSingleInitialization()) return null;
-            var lhs = preceedingStatement.TryGetLHSExpOfAssignmentOrSingleInit() as IdentifierNameSyntax;
-            var rhs = preceedingStatement.TryGetRightHandSideOfAssignmentOrSingleInit();
+            // list created just before loop starts?
+            var initStatement = forLoop.TryGetPrevStatement();
+            var lhs = initStatement.TryGetLHSExpOfAssignmentOrInit() as IdentifierNameSyntax;
             if (lhs == null) return null;
             var target = lhs.Identifier;
-            var cre = rhs as ObjectCreationExpressionSyntax;
-            if (cre == null) return null;
-            var cr = model.GetSemanticInfo(cre).Type;
+            var rhs = initStatement.TryGetRHSOfAssignmentOrInit() as ObjectCreationExpressionSyntax;
+            if (rhs == null) return null;
+            var cr = model.GetSemanticInfo(rhs).Type;
             if (cr.AllInterfaces.All(e => e.Name != "IList")) return null;
 
-            var action = forLoop.Statement;
-            if (action.Statements().Count() == 1) action = action.Statements().Single();
-            var adderStatement = action as ExpressionStatementSyntax;
+            // loop adds things directly into the list?
+            var adderStatement = forLoop.Statement.Statements().SingleOrDefaultAllowMany() as ExpressionStatementSyntax;
             if (adderStatement == null) return null;
             var adderInvoke = adderStatement.Expression as InvocationExpressionSyntax;
             if (adderInvoke == null) return null;
@@ -53,30 +49,23 @@ namespace Croslyn.CodeIssues {
             if (adderTarget.PlainName != target.ValueText) return null;
             if (adderAccess.Name.PlainName != "Add") return null;
             if (adderInvoke.ArgumentList.Arguments.Count != 1) return null;
-            var adderExp = adderInvoke.ArgumentList.Arguments.Single().Expression;
+            var adderExp = adderInvoke.ArgumentList.Arguments.Single().Expression as SimpleNameSyntax;
+            if (adderExp == null) return null;
+            if (adderExp.PlainName != forLoop.Identifier.ValueText) return null;
 
-            var linqed = forLoop.Expression
-                         .Accessing("Select")
-                         .Invoking(forLoop.Identifier.Lambdad(adderExp).Args1())
-                         .Accessing("ToList")
-                         .Invoking();
-            var newPreceedingStatement = preceedingStatement.TryWithNewRightHandSideOfAssignmentOrSingleInit(linqed);
+            var linqed = forLoop.Expression.Accessing("ToList").Invoking();
+            var replacedInit = initStatement.TryWithNewRightHandSideOfAssignmentOrSingleInit(linqed);
 
-            var toIfAnyThenAction = new ReadyCodeAction(
-                "for(x){add(y)} -> =x.Select(y).ToList()",
+            var action = new ReadyCodeAction(
+                "Select into list",
                 editFactory,
                 document,
-                parent,
-                () => parent.With(statements: 
-                    parent.Statements.TakeWhile(e => e != preceedingStatement)
-                    .Append(newPreceedingStatement)
-                    .Concat(parent.Statements.SkipWhile(e => e != preceedingStatement).Skip(2))
-                    .List()));
-
-            return toIfAnyThenAction.CodeIssues1(
+                new[] { initStatement, forLoop },
+                (e, a) => e == initStatement ? replacedInit : a.Dropped());
+            return action.CodeIssues1(
                 CodeIssue.Severity.Warning,
                 forLoop.ForEachKeyword.Span,
-                "Populating a list with a loop instead of a Linq query.");
+                "Initializing a list with a 'for each' loop.");
         }
 
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxToken token, CancellationToken cancellationToken) {

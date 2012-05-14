@@ -236,6 +236,7 @@ public static class Analysis {
             var shouldBeSafeOperators = new SyntaxKind[] {
                 SyntaxKind.EqualsExpression,
                 SyntaxKind.NotEqualsExpression,
+                SyntaxKind.AddExpression,
                 SyntaxKind.PlusExpression,
                 SyntaxKind.SubtractExpression,
                 SyntaxKind.MultiplyExpression,
@@ -413,7 +414,7 @@ public static class Analysis {
     public static bool IsAssignmentOrSingleInitializationOrReturn(this StatementSyntax syntax) {
         return syntax.IsAssignmentOrSingleInitialization() || syntax.IsReturnValue();
     }
-    public static ExpressionSyntax TryGetRightHandSideOfAssignmentOrSingleInit(this StatementSyntax syntax) {
+    public static ExpressionSyntax TryGetRHSOfAssignmentOrInit(this StatementSyntax syntax) {
         if (syntax.IsAssignment()) 
             return ((BinaryExpressionSyntax)((ExpressionStatementSyntax)syntax).Expression).Right;
         if (syntax.IsSingleInitialization()) 
@@ -422,7 +423,7 @@ public static class Analysis {
     }
     public static ExpressionSyntax TryGetRHSOfAssignmentOrInitOrReturn(this StatementSyntax syntax) {
         if (syntax.IsReturnValue()) return ((ReturnStatementSyntax)syntax).ExpressionOpt;
-        return syntax.TryGetRightHandSideOfAssignmentOrSingleInit();
+        return syntax.TryGetRHSOfAssignmentOrInit();
     }
     public static ISymbol TryGetLHSOfAssignmentOrInit(this StatementSyntax syntax, ISemanticModel model) {
         if (syntax.IsAssignment())
@@ -436,12 +437,12 @@ public static class Analysis {
         if (expression == null) return false;
         if (other == null) return false;
         if (expression.IsReturnValue() && other.IsReturnValue()) return true;
-        var lhs1 = expression.TryGetLHSExpOfAssignmentOrSingleInit();
-        var lhs2 = other.TryGetLHSExpOfAssignmentOrSingleInit();
+        var lhs1 = expression.TryGetLHSExpOfAssignmentOrInit();
+        var lhs2 = other.TryGetLHSExpOfAssignmentOrInit();
         if (lhs1 == null || lhs2 == null) return false;
         return lhs1.IsMatchingLHS(lhs2, model);
     }
-    public static ExpressionSyntax TryGetLHSExpOfAssignmentOrSingleInit(this StatementSyntax syntax) {
+    public static ExpressionSyntax TryGetLHSExpOfAssignmentOrInit(this StatementSyntax syntax) {
          if (syntax.IsAssignment())
             return ((BinaryExpressionSyntax)((ExpressionStatementSyntax)syntax).Expression).Left;
          if (syntax.IsSingleInitialization())

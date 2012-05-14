@@ -14,11 +14,11 @@ using Strilbrary.Values;
 
 namespace Croslyn.CodeIssues {
     [ExportSyntaxNodeCodeIssueProvider("Croslyn", LanguageNames.CSharp, typeof(ForEachStatementSyntax))]
-    internal class ForEachToWhere : ICodeIssueProvider {
+    internal class ForEachFilter : ICodeIssueProvider {
         private readonly ICodeActionEditFactory editFactory;
 
         [ImportingConstructor]
-        internal ForEachToWhere(ICodeActionEditFactory editFactory) {
+        internal ForEachFilter(ICodeActionEditFactory editFactory) {
             this.editFactory = editFactory;
         }
 
@@ -49,7 +49,7 @@ namespace Croslyn.CodeIssues {
             var forWhereDo = forLoop.With(expression: query, statement: conditionalActions);
 
             var switchToWhere = new ReadyCodeAction(
-                "for(x){if(y){z}} -> for(x.where(y)){z}",
+                "Filter collection",
                 editFactory,
                 document,
                 forLoop,
@@ -58,7 +58,7 @@ namespace Croslyn.CodeIssues {
             return switchToWhere.CodeIssues1(
                 CodeIssue.Severity.Warning,
                 forLoop.ForEachKeyword.Span,
-                "Loop can be simplified by hoisting branch into linq query.");
+                "'For each' loop body is conditional.");
         }
 
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxToken token, CancellationToken cancellationToken) {

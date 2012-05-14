@@ -42,7 +42,7 @@ namespace Croslyn.CodeIssues {
                 statement: bodyWithoutJump.Block());
 
             var toIfAnyStatement = new ReadyCodeAction(
-                "for(c){a} -> if(c.Any()){a}",
+                "Execute once if any",
                 editFactory,
                 document,
                 forLoop,
@@ -51,7 +51,7 @@ namespace Croslyn.CodeIssues {
             return toIfAnyStatement.CodeIssues1(
                 CodeIssue.Severity.Warning,
                 forLoop.ForEachKeyword.Span,
-                "Loop body is idempotent.");
+                "'For each' loop body is idempotent.");
         }
 
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxToken token, CancellationToken cancellationToken) {

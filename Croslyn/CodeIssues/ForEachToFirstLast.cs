@@ -67,13 +67,13 @@ namespace Croslyn.CodeIssues {
                     condition.IfThen(thenStatement)};
                 var switchToIfStatements = forLoop.MakeReplaceStatementWithManyAction(
                     ifStatements,
-                    "for(c){a} -> if(c." + firstVsLast + "?()){a}",
+                    "Execute " + firstVsLast + " if any",
                     editFactory,
                     document);
                 return new CodeIssue(
                     CodeIssue.Severity.Warning,
                     forLoop.ForEachKeyword.Span,
-                    firstVsLast + " execution of loop body is sufficient.",
+                    firstVsLast + " execution of 'for each' loop body is sufficient.",
                     new[] {switchToIfStatements });
             }).ToArray();
         }
