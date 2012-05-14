@@ -104,7 +104,7 @@ public static class Analysis {
         if (syntax is ExpressionStatementSyntax) return ((ExpressionStatementSyntax)syntax).Expression.IsLoopVarFirstpotent(model, loopVarReads);
         return Result.Unknown;
     }
-    public static Result IsLoopVarLastpotent(this ExpressionSyntax syntax, ISemanticModel model = null, IEnumerable<ExpressionSyntax> loopVarReads) {
+    public static Result IsLoopVarLastpotent(this ExpressionSyntax syntax, ISemanticModel model = null, IEnumerable<ExpressionSyntax> loopVarReads = null) {
         if (loopVarReads.Contains(syntax)) return Result.True;
         if (syntax is LiteralExpressionSyntax) return Result.True;
         if (syntax.Kind == SyntaxKind.AssignExpression) {
@@ -113,7 +113,7 @@ public static class Analysis {
         }
         return Result.Unknown;
     }
-    public static Result IsLoopVarLastpotent(this StatementSyntax syntax, ISemanticModel model = null, IEnumerable<ExpressionSyntax> loopVarReads) {
+    public static Result IsLoopVarLastpotent(this StatementSyntax syntax, ISemanticModel model = null, IEnumerable<ExpressionSyntax> loopVarReads = null) {
         if (syntax is BlockSyntax) {
             if (syntax.IsGuaranteedToJumpOut(includeContinue: false)) return Result.False;
             return syntax.Statements().Min(e => e.IsLoopVarLastpotent(model, loopVarReads));

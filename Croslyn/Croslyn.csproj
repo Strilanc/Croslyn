@@ -80,7 +80,7 @@
   <ItemGroup>
     <Compile Include="Analysis.cs" />
     <Compile Include="CodeAction.cs" />
-    <Compile Include="CodeIssues\ForEachToProject.cs" />
+    <Compile Include="CodeIssues\ForEachProject.cs" />
     <Compile Include="CodeIssues\RedundantBooleanExpression.cs" />
     <Compile Include="CodeIssues\TernaryToBool.cs" />
     <Compile Include="CodeIssues\UnnecessaryMutability.cs" />
@@ -88,7 +88,7 @@
     <Compile Include="CodeIssues\InconsistentAlignment.cs" />
     <Compile Include="CodeIssues\ForEachToAny.cs" />
     <Compile Include="CodeIssues\ForEachToFirstLast.cs" />
-    <Compile Include="CodeIssues\ForEachToWhere.cs" />
+    <Compile Include="CodeIssues\ForEachFilter.cs" />
     <Compile Include="CodeIssues\ForEachToList.cs" />
     <Compile Include="CodeIssues\ConditionableIfStatement.cs" />
     <Compile Include="CodeIssues\UselessStatement.cs" />
