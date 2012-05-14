@@ -27,10 +27,10 @@ namespace Croslyn.CodeIssues {
             var model = document.GetSemanticModel();
 
             // can the loop be replaced by its first or last iteration?
-            var body = forLoop.Statement.Statements();
-            if (body.None()) return null;
-            var loopStatements = body.SkipLast(body.Last().IsIntraLoopJump() ? 1 : 0);
-            if (loopStatements.Any(e => e.HasTopLevelIntraLoopJumps())) return null;
+            var loopStatements = forLoop.Statement.Statements();
+            if (loopStatements.None()) return null;
+            var rawThenStatements = loopStatements.SkipLast(loopStatements.Last().IsIntraLoopJump() ? 1 : 0).ToArray();
+            if (rawThenStatements.Any(e => e.HasTopLevelIntraLoopJumps())) return null;
             var iteratorReads = forLoop.Statement.ReadsOfLocalVariable(forLoop.Identifier).ToArray();
             if (iteratorReads.Length == 0) return null;
             var isFirstSufficient = forLoop.Statement.IsLoopVarFirstpotent(model, iteratorReads) >= Analysis.Result.TrueIfCodeFollowsConventions;
@@ -53,8 +53,8 @@ namespace Croslyn.CodeIssues {
             var condition = tempNullableLocalGet.BOpNotEquals(Syntax.LiteralExpression(SyntaxKind.NullLiteralExpression));
             var useDenulledLocal = iteratorReads.Length > 2;
             var thenStatement = useDenulledLocal
-                              ? loopStatements.Prepend(forLoop.Identifier.VarInit(valueGetter(tempNullableLocalGet))).Block()
-                              : loopStatements.Select(e => e.ReplaceNodes(iteratorReads, (n, a) => valueGetter(tempNullableLocalGet))).Block();
+                              ? rawThenStatements.Prepend(forLoop.Identifier.VarInit(valueGetter(tempNullableLocalGet))).Block()
+                              : rawThenStatements.Select(e => e.ReplaceNodes(iteratorReads, (n, a) => valueGetter(tempNullableLocalGet))).Block();
             var replacementStatements = new StatementSyntax[] {
                 tempNullableLocalName.VarInit(desiredIterationQuery),
                 condition.IfThen(thenStatement)
