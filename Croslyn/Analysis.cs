@@ -424,11 +424,11 @@ public static class Analysis {
         if (syntax.IsReturnValue()) return ((ReturnStatementSyntax)syntax).ExpressionOpt;
         return syntax.TryGetRightHandSideOfAssignmentOrSingleInit();
     }
-    public static ExpressionSyntax TryGetLeftHandSideOfAssignmentOrSingleInit(this StatementSyntax syntax) {
+    public static ISymbol TryGetLHSOfAssignmentOrInit(this StatementSyntax syntax, ISemanticModel model) {
         if (syntax.IsAssignment())
-            return ((BinaryExpressionSyntax)((ExpressionStatementSyntax)syntax).Expression).Left;
+            return model.GetSemanticInfo(((BinaryExpressionSyntax)((ExpressionStatementSyntax)syntax).Expression).Left).Symbol;
         if (syntax.IsSingleInitialization())
-            return Syntax.IdentifierName(((LocalDeclarationStatementSyntax)syntax).Declaration.Variables.Single().Identifier);
+            return model.GetSemanticInfo(((LocalDeclarationStatementSyntax)syntax).Declaration.Variables.Single()).Symbol;
         return null;
     }
     public static bool HasMatchingLHSOrRet(this StatementSyntax expression, StatementSyntax other, ISemanticModel model) {
@@ -436,15 +436,17 @@ public static class Analysis {
         if (expression == null) return false;
         if (other == null) return false;
         if (expression.IsReturnValue() && other.IsReturnValue()) return true;
-        var lhs1 = expression.TryGetLeftHandSideOfAssignmentOrSingleInit();
-        var lhs2 = other.TryGetLeftHandSideOfAssignmentOrSingleInit();
+        var lhs1 = expression.TryGetLHSExpOfAssignmentOrSingleInit();
+        var lhs2 = other.TryGetLHSExpOfAssignmentOrSingleInit();
         if (lhs1 == null || lhs2 == null) return false;
         return lhs1.IsMatchingLHS(lhs2, model);
     }
-    public static ExpressionSyntax TryGetRHSForMatchingLHSOrRet(this StatementSyntax expression, StatementSyntax other, ISemanticModel model) {
-        Contract.Requires(model != null);
-        if (!expression.HasMatchingLHSOrRet(other, model)) return null;
-        return other.TryGetRightHandSideOfAssignmentOrSingleInitOrReturnValue();
+    public static ExpressionSyntax TryGetLHSExpOfAssignmentOrSingleInit(this StatementSyntax syntax) {
+         if (syntax.IsAssignment())
+            return ((BinaryExpressionSyntax)((ExpressionStatementSyntax)syntax).Expression).Left;
+         if (syntax.IsSingleInitialization())
+            return Syntax.IdentifierName(((LocalDeclarationStatementSyntax)syntax).Declaration.Variables.Single().Identifier);
+         return null;
     }
     public static bool IsMatchingLHS(this ExpressionSyntax lhs1, ExpressionSyntax lhs2, ISemanticModel model) {
         Contract.Requires(lhs1 != null);

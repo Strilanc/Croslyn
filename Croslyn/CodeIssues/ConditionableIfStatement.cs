@@ -29,18 +29,16 @@ namespace Croslyn.CodeIssues {
 
             var model = document.GetSemanticModel();
 
-            var b = conditionalAction.TryGetLeftHandSideOfAssignmentOrSingleInit();
-            if (b != null) {
-                var s = model.GetSemanticInfo(b).Symbol;
-                if (s == null) return null;
-                var dataFlow = model.AnalyzeRegionDataFlow(ifNode.Condition.Span);
-                if (dataFlow.ReadInside.Contains(s)) return null;
-                if (dataFlow.WrittenInside.Contains(s)) return null;
-            }
-
             var branches = ifNode.TryGetImplicitBranchSingleStatements(model);
             if (branches == null) return null;
             if (!branches.Item1.HasMatchingLHSOrRet(branches.Item2, model)) return null;
+
+            var lhs = branches.Item1.TryGetLHSOfAssignmentOrInit(model);
+            if (lhs != null) {
+                var dataFlow = model.AnalyzeRegionDataFlow(ifNode.Condition.Span);
+                if (dataFlow.ReadInside.Contains(lhs)) return null;
+                if (dataFlow.WrittenInside.Contains(lhs)) return null;
+            }
 
             var conditional = ifNode.Condition.Conditional(
                 branches.Item1.TryGetRightHandSideOfAssignmentOrSingleInitOrReturnValue(),
@@ -48,14 +46,14 @@ namespace Croslyn.CodeIssues {
             var @base = branches.Item1 as LocalDeclarationStatementSyntax
                      ?? branches.Item2 as LocalDeclarationStatementSyntax
                      ?? branches.Item1;
-            var rep = @base.TryWithNewRightHandSideOfAssignmentOrSingleInitOrReturnValue(conditional);
+            var replacement = @base.TryWithNewRightHandSideOfAssignmentOrSingleInitOrReturnValue(conditional);
 
-            var d = new Dictionary<SyntaxNode, SyntaxNode> {
-                {ifNode, rep},
+            var changes = new Dictionary<SyntaxNode, SyntaxNode> {
+                {ifNode, replacement},
                 {branches.Item1, branches.Item1.Dropped()},
                 {branches.Item2, branches.Item2.Dropped()}
             };
-            var action = new ReadyCodeAction("Fold into conditional expression", editFactory, document, d.Keys, (e, a) => d[e]);
+            var action = new ReadyCodeAction("Fold into conditional expression", editFactory, document, changes.Keys, (e, a) => changes[e]);
             return action.CodeIssues1(CodeIssue.Severity.Warning, ifNode.IfKeyword.Span, "'If' statement can be simplified into an expression");
         }
 
