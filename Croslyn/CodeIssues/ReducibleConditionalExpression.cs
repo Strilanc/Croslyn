@@ -14,11 +14,11 @@ using Strilbrary.Values;
 
 namespace Croslyn.CodeIssues {
     [ExportSyntaxNodeCodeIssueProvider("Croslyn", LanguageNames.CSharp, typeof(ConditionalExpressionSyntax))]
-    internal class TernaryToBool : ICodeIssueProvider {
+    internal class ReducibleConditionalExpression : ICodeIssueProvider {
         private readonly ICodeActionEditFactory editFactory;
 
         [ImportingConstructor]
-        internal TernaryToBool(ICodeActionEditFactory editFactory) {
+        internal ReducibleConditionalExpression(ICodeActionEditFactory editFactory) {
             this.editFactory = editFactory;
         }
 
@@ -50,7 +50,6 @@ namespace Croslyn.CodeIssues {
                         ternaryNode, 
                         () => replacement));
                 }
-                
             }
             if (whenTrueFalseCmp == false) {
                 // (c ? b : !b) --> (c == b)
@@ -65,10 +64,10 @@ namespace Croslyn.CodeIssues {
 
             if (actions.Count == 0) return null;
             return new[] { new CodeIssue(
-                    CodeIssue.Severity.Warning, 
-                    ternaryNode.QuestionToken.Span, 
-                    "Conditional expression can be simplified into boolean expression.", 
-                    actions) };
+                CodeIssue.Severity.Warning, 
+                ternaryNode.QuestionToken.Span, 
+                "Conditional expression can be simplified into boolean expression.", 
+                actions) };
         }
 
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxToken token, CancellationToken cancellationToken) {
