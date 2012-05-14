@@ -104,25 +104,25 @@ public static class Analysis {
         if (syntax is ExpressionStatementSyntax) return ((ExpressionStatementSyntax)syntax).Expression.IsLoopVarFirstpotent(model, loopVarReads);
         return Result.Unknown;
     }
-    public static Result IsLoopVarLastpotent(this ExpressionSyntax syntax, IEnumerable<ExpressionSyntax> loopVarReads, ISemanticModel model = null) {
+    public static Result IsLoopVarLastpotent(this ExpressionSyntax syntax, ISemanticModel model = null, IEnumerable<ExpressionSyntax> loopVarReads) {
         if (loopVarReads.Contains(syntax)) return Result.True;
         if (syntax is LiteralExpressionSyntax) return Result.True;
         if (syntax.Kind == SyntaxKind.AssignExpression) {
             var b = (BinaryExpressionSyntax)syntax;
-            if (b.Left is IdentifierNameSyntax) return b.Right.IsLoopVarLastpotent(loopVarReads, model);
+            if (b.Left is IdentifierNameSyntax) return b.Right.IsLoopVarLastpotent(model, loopVarReads);
         }
         return Result.Unknown;
     }
-    public static Result IsLoopVarLastpotent(this StatementSyntax syntax, IEnumerable<ExpressionSyntax> loopVarReads, ISemanticModel model = null) {
+    public static Result IsLoopVarLastpotent(this StatementSyntax syntax, ISemanticModel model = null, IEnumerable<ExpressionSyntax> loopVarReads) {
         if (syntax is BlockSyntax) {
             if (syntax.IsGuaranteedToJumpOut(includeContinue: false)) return Result.False;
-            return syntax.Statements().Min(e => e.IsLoopVarLastpotent(loopVarReads, model));
+            return syntax.Statements().Min(e => e.IsLoopVarLastpotent(model, loopVarReads));
         }
         if (syntax is ReturnStatementSyntax) return Result.False;
         if (syntax is BreakStatementSyntax) return Result.False;
         if (syntax is ThrowStatementSyntax) return Result.False;
         if (syntax is ContinueStatementSyntax) return Result.True;
-        if (syntax is ExpressionStatementSyntax) return ((ExpressionStatementSyntax)syntax).Expression.IsLoopVarLastpotent(loopVarReads, model);
+        if (syntax is ExpressionStatementSyntax) return ((ExpressionStatementSyntax)syntax).Expression.IsLoopVarLastpotent(model, loopVarReads);
         return Result.Unknown;
     }
     public static bool HasTopLevelIntraLoopJumps(this StatementSyntax syntax) {
