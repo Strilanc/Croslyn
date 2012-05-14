@@ -454,12 +454,12 @@ public static class Analysis {
         if (lhs1.Kind != lhs2.Kind) return false;
         if (lhs1.HasSideEffects(model) > Result.FalseIfCodeFollowsConventions) return false;
 
+        if (lhs1 is SimpleNameSyntax) return ((SimpleNameSyntax)lhs1).PlainName == ((SimpleNameSyntax)lhs2).PlainName;
+
         var s1 = model.GetSemanticInfo(lhs1);
         var s2 = model.GetSemanticInfo(lhs2);
         if (s1.Symbol != s2.Symbol) return false;
 
-        if (lhs1 is SimpleNameSyntax) return true;
-        
         var inv1 = lhs1 as InvocationExpressionSyntax;
         var inv2 = lhs2 as InvocationExpressionSyntax;
         if (inv1 != null) {
@@ -493,18 +493,8 @@ public static class Analysis {
         CommonSyntaxTree r;
         return document.TryGetSyntaxTree(out r) ? r : null;
     }
-    public static Tuple<StatementSyntax, StatementSyntax> SS(IfStatementSyntax syntax) {
-        var trueAction = syntax.Statement;
-        if (trueAction is BlockSyntax) {
-            trueAction = trueAction.Statements().SingleOrDefaultAllowMany();
-        }
-        if (trueAction == null) return null;
-        var falseAction = syntax.ElseStatementOrEmptyBlock();
-        
-        var altStatement = syntax.ElseAndFollowingStatements().FirstOrDefault();
-    }
 
-    public static Tuple<StatementSyntax, StatementSyntax> TryGetBranchesAroundIfStatement(this IfStatementSyntax syntax, ISemanticModel model) {
+    public static Tuple<StatementSyntax, StatementSyntax> TryGetImplicitBranchSingleStatements(this IfStatementSyntax syntax, ISemanticModel model) {
         return TryGetIfStatementBranches_BothSingle(syntax) 
             ?? TryGetIfStatementBranches_ConditionalJump(syntax) 
             ?? TryGetIfStatementBranches_OverwritePrev(syntax, model);
@@ -523,7 +513,7 @@ public static class Analysis {
         if (trueAction == null) return null;
         if (!trueAction.IsGuaranteedToJumpOut()) return null;
 
-        if (syntax.ElseOpt == null) return null;
+        if (syntax.ElseOpt != null) return null;
         var followingAction = syntax.ElseAndFollowingStatements().FirstOrDefault();
         if (followingAction == null) return null;
         
@@ -533,6 +523,7 @@ public static class Analysis {
         var trueAction = syntax.Statement.CollapsedStatements().SingleOrDefaultAllowMany();
         if (trueAction == null) return null;
 
+        if (syntax.ElseOpt != null) return null;
         var prev = syntax.TryGetPrevStatement();
         if (prev == null) return null;
 
