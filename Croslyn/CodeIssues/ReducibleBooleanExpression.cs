@@ -59,8 +59,8 @@ namespace Croslyn.CodeIssues {
             if (b.Kind == SyntaxKind.EqualsExpression) equality = true;
             if (b.Kind == SyntaxKind.ExclusiveOrExpression || b.Kind == SyntaxKind.NotEqualsExpression) equality = false;
             if (equality != null) {
-                if (lv != null) useRight(lv != equality);
-                if (rv != null) useLeft(rv != equality);
+                if (lv != null) useRight(lv == equality);
+                if (rv != null) useLeft(rv == equality);
                 if (cmp != null) useBool(cmp == equality);
             }
             

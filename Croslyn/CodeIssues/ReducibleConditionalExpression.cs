@@ -42,7 +42,11 @@ namespace Croslyn.CodeIssues {
                 // if condition has side effects we may need to keep it
                 // (c ? b : b) --> ((c && false) || b)
                 if (!ternaryNode.Condition.HasSideEffects(model).IsProbablyFalse) {
-                    var replacement = ternaryNode.Condition.Bracketed().BOpLogicalAnd(Syntax.LiteralExpression(SyntaxKind.FalseLiteralExpression)).Bracketed().BOpLogicalOr(ternaryNode.WhenTrue);
+                    var replacement = ternaryNode.Condition
+                                      .Bracketed()
+                                      .BOpLogicalAnd(false.AsLiteral())
+                                      .Bracketed()
+                                      .BOpLogicalOr(ternaryNode.WhenTrue);
                     actions.Add(new ReadyCodeAction(
                         "Simplify (keeping condition evaluation)", 
                         editFactory, 
@@ -54,12 +58,12 @@ namespace Croslyn.CodeIssues {
             if (whenTrueFalseCmp == false) {
                 // (c ? b : !b) --> (c == b)
                 var replacement = ternaryNode.Condition.Bracketed().BOpEquals(ternaryNode.WhenTrue);
-                var action = new ReadyCodeAction(
+                actions.Add(new ReadyCodeAction(
                     "Simplify", 
                     editFactory, 
                     document, 
                     ternaryNode, 
-                    () => replacement);
+                    () => replacement));
             }
 
             if (actions.Count == 0) return null;

@@ -82,7 +82,7 @@
     <Compile Include="CodeAction.cs" />
     <Compile Include="CodeIssues\ForEachProject.cs" />
     <Compile Include="CodeIssues\ReducibleBooleanExpression.cs" />
-    <Compile Include="CodeIssues\TernaryToBool.cs" />
+    <Compile Include="CodeIssues\ReducibleConditionalExpression.cs" />
     <Compile Include="CodeIssues\UnnecessaryMutability.cs" />
     <Compile Include="CodeIssues\UselessBranch.cs" />
     <Compile Include="CodeIssues\InconsistentAlignment.cs" />
