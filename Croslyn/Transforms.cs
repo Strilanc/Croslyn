@@ -134,15 +134,18 @@ public static class Transforms {
     }
 
     public static SyntaxNode RemoveStatementsWithNoEffect(this SyntaxNode root, ISemanticModel model = null) {
-        return root.ReplaceNodes(root.DescendentNodesAndSelf().OfType<StatementSyntax>().Where(e => e.HasSideEffects(model) <= Analysis.Result.FalseIfCodeFollowsConventions), (e,a) => e.Dropped());
+        return root.ReplaceNodes(root.DescendentNodesAndSelf()
+                                     .OfType<StatementSyntax>()
+                                     .Where(e => e.HasSideEffects(model).IsProbablyFalse), 
+                                 (e,a) => e.Dropped());
     }
 
     public static StatementSyntax DropEmptyBranchesIfApplicable(this IfStatementSyntax syntax) {
         Contract.Requires(syntax != null);
 
-        var canOmitCondition = syntax.Condition.HasSideEffects() <= Analysis.Result.FalseIfCodeFollowsConventions;
-        var canOmitTrueBranch = syntax.Statement.HasSideEffects() <= Analysis.Result.FalseIfCodeFollowsConventions;
-        var canOmitFalseBranch = syntax.ElseStatementOrEmptyBlock().HasSideEffects() <= Analysis.Result.FalseIfCodeFollowsConventions;
+        var canOmitCondition = syntax.Condition.HasSideEffects().IsProbablyFalse;
+        var canOmitTrueBranch = syntax.Statement.HasSideEffects().IsProbablyFalse;
+        var canOmitFalseBranch = syntax.ElseStatementOrEmptyBlock().HasSideEffects().IsProbablyFalse;
 
         // can we get rid of the 'if' usage?
         if (canOmitTrueBranch && canOmitFalseBranch && canOmitCondition)

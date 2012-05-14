@@ -29,7 +29,7 @@ namespace Croslyn.CodeIssues {
                 if (c is BlockSyntax && c.Statements().None()) return null;
             }
 
-            if (c.HasSideEffects(document.TryGetSemanticModel()) > Analysis.Result.FalseIfCodeFollowsConventions) return null;
+            if (!c.HasSideEffects(document.TryGetSemanticModel()).IsProbablyFalse) return null;
             return new[] { new CodeIssue(CodeIssue.Severity.Warning, c.Span, "Statement without any effect", new[] { new ReadyCodeAction(
                 "Remove Unnecessary Statement",
                 editFactory,

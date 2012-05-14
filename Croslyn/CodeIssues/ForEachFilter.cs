@@ -37,8 +37,8 @@ namespace Croslyn.CodeIssues {
             var trueBranch = conditionalStatement.Statement.Statements().AppendUnlessJumps(unconditionalStatements).Block();
             var falseBranch = conditionalStatement.ElseStatementOrEmptyBlock().Statements().AppendUnlessJumps(unconditionalStatements).Block();
 
-            var falseIsEmpty = falseBranch.HasSideEffects(model) <= Analysis.Result.FalseIfCodeFollowsConventions;
-            var trueIsEmpty = trueBranch.HasSideEffects(model) <= Analysis.Result.FalseIfCodeFollowsConventions;
+            var falseIsEmpty = falseBranch.HasSideEffects(model).IsProbablyFalse;
+            var trueIsEmpty = trueBranch.HasSideEffects(model).IsProbablyFalse;
             if (falseIsEmpty == trueIsEmpty) return null;
 
             var condition = falseIsEmpty ? conditionalStatement.Condition : conditionalStatement.Condition.Inverted();

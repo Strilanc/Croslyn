@@ -29,8 +29,8 @@ namespace Croslyn.CodeIssues {
             if (!b.Right.DefinitelyHasBooleanType(model)) return null;
 
             // prep basic analysis
-            var leftEffects = b.Left.HasSideEffects(model) > Analysis.Result.FalseIfCodeFollowsConventions;
-            var rightEffects = b.Right.HasSideEffects(model) > Analysis.Result.FalseIfCodeFollowsConventions;
+            var leftEffects = !b.Left.HasSideEffects(model).IsProbablyFalse;
+            var rightEffects = !b.Right.HasSideEffects(model).IsProbablyFalse;
             var lv = b.Left.TryGetConstBoolValue();
             var rv = b.Right.TryGetConstBoolValue();
             var cmp = b.Left.TryGetAlternativeEquivalence(b.Right, model);

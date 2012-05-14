@@ -33,8 +33,8 @@ namespace Croslyn.CodeIssues {
             if (rawThenStatements.Any(e => e.HasTopLevelIntraLoopJumps())) return null;
             var iteratorReads = forLoop.Statement.ReadsOfLocalVariable(forLoop.Identifier).ToArray();
             if (iteratorReads.Length == 0) return null;
-            var isFirstSufficient = forLoop.Statement.IsLoopVarFirstpotent(model, iteratorReads) >= Analysis.Result.TrueIfCodeFollowsConventions;
-            var isLastSufficient = forLoop.Statement.IsLoopVarLastpotent(model, iteratorReads) >= Analysis.Result.TrueIfCodeFollowsConventions;
+            var isFirstSufficient = forLoop.Statement.IsLoopVarFirstpotent(model, iteratorReads).IsProbablyTrue;
+            var isLastSufficient = forLoop.Statement.IsLoopVarLastpotent(model, iteratorReads).IsProbablyTrue;
             var firstVsLast = isFirstSufficient ? "First"
                             : isLastSufficient ? "Last"
                             : null;

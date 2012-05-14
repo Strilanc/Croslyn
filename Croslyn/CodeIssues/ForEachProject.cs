@@ -38,7 +38,7 @@ namespace Croslyn.CodeIssues {
             var projection = singleRead.Ancestors()
                              .TakeWhile(e => e is ExpressionSyntax)
                              .Cast<ExpressionSyntax>()
-                             .TakeWhile(e => e.HasSideEffects(model) <= Analysis.Result.FalseIfCodeFollowsConventions)
+                             .TakeWhile(e => e.HasSideEffects(model).IsProbablyFalse)
                              .LastOrDefault();
             if (projection == null) return null;
             if (projection.TryGetAlternativeEquivalence(singleRead, model) == true) return null;

@@ -81,7 +81,7 @@
     <Compile Include="Analysis.cs" />
     <Compile Include="CodeAction.cs" />
     <Compile Include="CodeIssues\ForEachProject.cs" />
-    <Compile Include="CodeIssues\RedundantBooleanExpression.cs" />
+    <Compile Include="CodeIssues\ReducibleBooleanExpression.cs" />
     <Compile Include="CodeIssues\TernaryToBool.cs" />
     <Compile Include="CodeIssues\UnnecessaryMutability.cs" />
     <Compile Include="CodeIssues\UselessBranch.cs" />
@@ -94,6 +94,7 @@
     <Compile Include="CodeIssues\UselessStatement.cs" />
     <Compile Include="CodeIssues\UnnecessaryBraces.cs" />
     <Compile Include="CodeIssues\UnnecessaryElse.cs" />
+    <Compile Include="TentativeBool.cs" />
     <Compile Include="SyntaxWithEx.cs" />
     <Compile Include="Refactorings\InlineLargeGuardedBranches.cs" />
     <Compile Include="Refactorings\LopsidedTerminalIfsToEarlyReturnGuards.cs" />

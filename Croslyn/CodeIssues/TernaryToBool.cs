@@ -23,13 +23,12 @@ namespace Croslyn.CodeIssues {
         }
 
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {
-            var model = document.TryGetSemanticModel();
-            if (model == null) return null;
+            var model = document.GetSemanticModel();
 
             var ternaryNode = (ConditionalExpressionSyntax)node;
             if (model.GetSemanticInfo(ternaryNode).Type.SpecialType != SpecialType.System_Boolean) return null;
 
-            var conditionNeeded = ternaryNode.Condition.HasSideEffects(model) > Analysis.Result.FalseIfCodeFollowsConventions;
+            var conditionNeeded = !ternaryNode.Condition.HasSideEffects(model).IsProbablyFalse;
             var cmp = ternaryNode.WhenTrue.TryGetAlternativeEquivalence(ternaryNode.WhenFalse, model);
             if (cmp == true) {
                 var action = new ReadyCodeAction("Replace with branch", editFactory, document, ternaryNode, () => ternaryNode.WhenTrue);
