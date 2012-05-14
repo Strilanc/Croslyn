@@ -23,38 +23,39 @@ namespace Croslyn.CodeIssues {
         }
 
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {
-            var ifNode = (IfStatementSyntax)node;
-            if (ifNode.Statement.Statements().Count() != 1) return null;
-            var conditionalAction = ifNode.Statement.Statements().Single();
-
             var model = document.GetSemanticModel();
 
+            // try to get single statement branches created by the if statement's existence
+            var ifNode = (IfStatementSyntax)node;
             var branches = ifNode.TryGetImplicitBranchSingleStatements(model);
             if (branches == null) return null;
-            if (!branches.Item1.HasMatchingLHSOrRet(branches.Item2, model)) return null;
-
-            var lhs = branches.Item1.TryGetLHSOfAssignmentOrInit(model);
+            
+            // check for same LHS/ret in both branches but not in condition
+            if (!branches.True.HasMatchingLHSOrRet(branches.False, model)) return null;
+            var lhs = branches.True.TryGetLHSOfAssignmentOrInit(model);
             if (lhs != null) {
                 var dataFlow = model.AnalyzeRegionDataFlow(ifNode.Condition.Span);
                 if (dataFlow.ReadInside.Contains(lhs)) return null;
                 if (dataFlow.WrittenInside.Contains(lhs)) return null;
             }
 
-            var conditional = ifNode.Condition.Conditional(
-                branches.Item1.TryGetRightHandSideOfAssignmentOrSingleInitOrReturnValue(),
-                branches.Item2.TryGetRightHandSideOfAssignmentOrSingleInitOrReturnValue());
-            var @base = branches.Item1 as LocalDeclarationStatementSyntax
-                     ?? branches.Item2 as LocalDeclarationStatementSyntax
-                     ?? branches.Item1;
-            var replacement = @base.TryWithNewRightHandSideOfAssignmentOrSingleInitOrReturnValue(conditional);
+            // determine how to replace the if statement
+            var expTrue = branches.True.TryGetRHSOfAssignmentOrInitOrReturn();
+            var expFalse = branches.False.TryGetRHSOfAssignmentOrInitOrReturn();
+            var expConditional = ifNode.Condition.Conditional(expTrue, expFalse);
+            var replacement = branches.Base.TryUpdateRHSForAssignmentOrInitOrReturn(expConditional);
 
-            var changes = new Dictionary<SyntaxNode, SyntaxNode> {
-                {ifNode, replacement},
-                {branches.Item1, branches.Item1.Dropped()},
-                {branches.Item2, branches.Item2.Dropped()}
-            };
-            var action = new ReadyCodeAction("Fold into expression", editFactory, document, changes.Keys, (e, a) => changes[e]);
-            return action.CodeIssues1(CodeIssue.Severity.Warning, ifNode.IfKeyword.Span, "'If' statement folds into an expression");
+            // return as code issue / action
+            var action = new ReadyCodeAction(
+                "Fold into expression", 
+                editFactory, 
+                document, 
+                new[] { ifNode, branches.True, branches.False, branches.ReplacePoint }, 
+                (e, a) => e == branches.ReplacePoint ? replacement : a.Dropped());
+            return action.CodeIssues1(
+                CodeIssue.Severity.Warning, 
+                ifNode.IfKeyword.Span, 
+                "'If' statement folds into an expression");
         }
 
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxToken token, CancellationToken cancellationToken) {

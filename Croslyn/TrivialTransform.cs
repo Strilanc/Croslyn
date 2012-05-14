@@ -136,7 +136,7 @@ public static class TrivialTransforms {
         }
         return null;
     }
-    public static StatementSyntax TryWithNewRightHandSideOfAssignmentOrSingleInitOrReturnValue(this StatementSyntax syntax, ExpressionSyntax rhs) {
+    public static StatementSyntax TryUpdateRHSForAssignmentOrInitOrReturn(this StatementSyntax syntax, ExpressionSyntax rhs) {
         if (syntax.IsReturnValue())
             return ((ReturnStatementSyntax)syntax).With(expressionOpt: new Renullable<ExpressionSyntax>(rhs));
         return syntax.TryWithNewRightHandSideOfAssignmentOrSingleInit(rhs);

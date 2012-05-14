@@ -420,7 +420,7 @@ public static class Analysis {
             return ((LocalDeclarationStatementSyntax)syntax).Declaration.Variables.Single().InitializerOpt.Value;
         return null;
     }
-    public static ExpressionSyntax TryGetRightHandSideOfAssignmentOrSingleInitOrReturnValue(this StatementSyntax syntax) {
+    public static ExpressionSyntax TryGetRHSOfAssignmentOrInitOrReturn(this StatementSyntax syntax) {
         if (syntax.IsReturnValue()) return ((ReturnStatementSyntax)syntax).ExpressionOpt;
         return syntax.TryGetRightHandSideOfAssignmentOrSingleInit();
     }
@@ -496,21 +496,33 @@ public static class Analysis {
         return document.TryGetSyntaxTree(out r) ? r : null;
     }
 
-    public static Tuple<StatementSyntax, StatementSyntax> TryGetImplicitBranchSingleStatements(this IfStatementSyntax syntax, ISemanticModel model) {
+    public class ImplicitSingleStatementBranches {
+        public readonly StatementSyntax True;
+        public readonly StatementSyntax False;
+        public readonly StatementSyntax ReplacePoint;
+        public ImplicitSingleStatementBranches(StatementSyntax @true, StatementSyntax @false, StatementSyntax replacePoint) {
+            this.True = @true;
+            this.False = @false;
+            this.ReplacePoint = replacePoint;
+        }
+        ///<summary>The statement whose RHS needs to be updated.</summary>
+        public StatementSyntax Base { get { return False as LocalDeclarationStatementSyntax ?? True; } }
+    }
+    public static ImplicitSingleStatementBranches TryGetImplicitBranchSingleStatements(this IfStatementSyntax syntax, ISemanticModel model) {
         return TryGetIfStatementBranches_BothSingle(syntax) 
             ?? TryGetIfStatementBranches_ConditionalJump(syntax) 
             ?? TryGetIfStatementBranches_OverwritePrev(syntax, model);
     }
-    public static Tuple<StatementSyntax, StatementSyntax> TryGetIfStatementBranches_BothSingle(IfStatementSyntax syntax) {
+    public static ImplicitSingleStatementBranches TryGetIfStatementBranches_BothSingle(IfStatementSyntax syntax) {
         var trueAction = syntax.Statement.CollapsedStatements().SingleOrDefaultAllowMany();
         if (trueAction == null) return null;
         
         var falseAction = syntax.ElseStatementOrEmptyBlock().CollapsedStatements().SingleOrDefaultAllowMany();
         if (falseAction == null) return null;
         
-        return Tuple.Create(trueAction, falseAction);
+        return new ImplicitSingleStatementBranches(trueAction, falseAction, syntax);
     }
-    public static Tuple<StatementSyntax, StatementSyntax> TryGetIfStatementBranches_ConditionalJump(IfStatementSyntax syntax) {
+    public static ImplicitSingleStatementBranches TryGetIfStatementBranches_ConditionalJump(IfStatementSyntax syntax) {
         var trueAction = syntax.Statement.CollapsedStatements().SingleOrDefaultAllowMany();
         if (trueAction == null) return null;
         if (!trueAction.IsGuaranteedToJumpOut()) return null;
@@ -519,9 +531,9 @@ public static class Analysis {
         var followingAction = syntax.ElseAndFollowingStatements().FirstOrDefault();
         if (followingAction == null) return null;
         
-        return Tuple.Create(trueAction, followingAction);
+        return new ImplicitSingleStatementBranches(trueAction, followingAction, syntax);
     }
-    public static Tuple<StatementSyntax, StatementSyntax> TryGetIfStatementBranches_OverwritePrev(IfStatementSyntax syntax, ISemanticModel model) {
+    public static ImplicitSingleStatementBranches TryGetIfStatementBranches_OverwritePrev(IfStatementSyntax syntax, ISemanticModel model) {
         var trueAction = syntax.Statement.CollapsedStatements().SingleOrDefaultAllowMany();
         if (trueAction == null) return null;
 
@@ -530,7 +542,7 @@ public static class Analysis {
         if (prev == null) return null;
 
         if (trueAction.Overwrites(prev, model) != true) return null;
-        return Tuple.Create(trueAction, prev);
+        return new ImplicitSingleStatementBranches(trueAction, prev, prev);
     }
 
     public static StatementSyntax TryGetPrevStatement(this StatementSyntax syntax) {
