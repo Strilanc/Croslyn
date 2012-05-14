@@ -23,56 +23,66 @@ namespace Croslyn.CodeIssues {
         }
 
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {
-            var model = document.TryGetSemanticModel();
-            if (model == null) return null;
+            var model = document.GetSemanticModel();
+            var b = (BinaryExpressionSyntax)node;
+            if (!b.Left.DefinitelyHasBooleanType(model)) return null;
+            if (!b.Right.DefinitelyHasBooleanType(model)) return null;
 
-            var binaryNode = (BinaryExpressionSyntax)node;
-            if (!binaryNode.Left.DefinitelyHasBooleanType(model)) return null;
-            if (!binaryNode.Right.DefinitelyHasBooleanType(model)) return null;
+            // prep basic analysis
+            var leftEffects = b.Left.HasSideEffects(model) > Analysis.Result.FalseIfCodeFollowsConventions;
+            var rightEffects = b.Right.HasSideEffects(model) > Analysis.Result.FalseIfCodeFollowsConventions;
+            var lv = b.Left.TryGetConstBoolValue();
+            var rv = b.Right.TryGetConstBoolValue();
+            var cmp = b.Left.TryGetAlternativeEquivalence(b.Right, model);
 
-            var leftEffects = binaryNode.Left.HasSideEffects(model) > Analysis.Result.FalseIfCodeFollowsConventions;
-            var rightEffects = binaryNode.Right.HasSideEffects(model) > Analysis.Result.FalseIfCodeFollowsConventions;
-            var shortCircuits = binaryNode.Kind == SyntaxKind.LogicalOrExpression || binaryNode.Kind == SyntaxKind.LogicalAndExpression;
-
-            var lv = binaryNode.Left.TryGetConstBoolValue();
-            var rv = binaryNode.Right.TryGetConstBoolValue();
-            var cmp = binaryNode.Left.TryGetAlternativeEquivalence(binaryNode.Right, model);
-
-            var useFalse = new ReadyCodeAction("false", editFactory, document, binaryNode, () => false.AsLiteral());
-            var useTrue = new ReadyCodeAction("true", editFactory, document, binaryNode, () => true.AsLiteral());
-            var useRight = new ReadyCodeAction("rhs", editFactory, document, binaryNode, () => binaryNode.Right);
-            var useInvertedRight = new ReadyCodeAction("!rhs", editFactory, document, binaryNode, () => binaryNode.Right.Inverted());
-            var useLeft = new ReadyCodeAction("lhs", editFactory, document, binaryNode, () => binaryNode.Left);
-            var useInvertedLeft = new ReadyCodeAction("!lhs", editFactory, document, binaryNode, () => binaryNode.Left.Inverted());
-            
+            // prep utility funcs for adding simplifications
             var actions = new List<ICodeAction>();
-            if (binaryNode.Kind == SyntaxKind.EqualsExpression) {
-                if (lv != null) actions.Add(lv.Value ? useRight : useInvertedRight);
-                if (rv != null) actions.Add(rv.Value ? useLeft : useInvertedLeft);
-                if (cmp != null && !leftEffects && !rightEffects) actions.Add(cmp.Value ? useTrue : useFalse);
-            } else if (binaryNode.Kind == SyntaxKind.LogicalAndExpression || binaryNode.Kind == SyntaxKind.BitwiseAndExpression) {
-                if (lv == false && (shortCircuits || !rightEffects)) actions.Add(useFalse);
-                if (lv == true) actions.Add(useRight);
-                if (rv == true) actions.Add(useLeft);
-                if (rv == false && !leftEffects) actions.Add(useFalse);
-                if (cmp == false && !rightEffects && !leftEffects) actions.Add(useFalse);
-                if (cmp == true && !rightEffects) actions.Add(useLeft);
-                if (cmp == true && !leftEffects) actions.Add(useRight);
-            } else if (binaryNode.Kind == SyntaxKind.LogicalOrExpression || binaryNode.Kind == SyntaxKind.BitwiseOrExpression) {
-                if (lv == true && (shortCircuits || !rightEffects)) actions.Add(useTrue);
-                if (lv == false) actions.Add(useRight);
-                if (rv == false) actions.Add(useLeft);
-                if (rv == true && !leftEffects) actions.Add(useTrue);
-                if (cmp == false && !rightEffects && !leftEffects) actions.Add(useTrue);
-                if (cmp == true && !rightEffects) actions.Add(useLeft);
-                if (cmp == true && !leftEffects) actions.Add(useRight);
-            } else if (binaryNode.Kind == SyntaxKind.ExclusiveOrExpression || binaryNode.Kind == SyntaxKind.NotEqualsExpression) {
-                if (lv != null) actions.Add(lv.Value ? useInvertedLeft : useLeft);
-                if (rv != null) actions.Add(rv.Value ? useInvertedRight : useRight);
-                if (cmp != null && !leftEffects && !rightEffects) actions.Add(cmp.Value ? useFalse : useTrue);
+            Action<String, ExpressionSyntax> include = (desc, rep) => 
+                actions.Add(new ReadyCodeAction(desc, editFactory, document, b, () => rep));
+            Action<bool> useRight = v => { 
+                if (!leftEffects) 
+                    include(v ? "rhs" : "!rhs", b.Right.MaybeInverted(!v)); 
+            };
+            Action<bool> useLeft = v => { 
+                if (!rightEffects) 
+                    include(v ? "lhs" : "!lhs", b.Left.MaybeInverted(!v)); 
+            };
+            Action<bool> useBool = v => {
+                if (!leftEffects && !rightEffects) {
+                    actions.Clear(); // override left/right
+                    include(v + "", v.AsLiteral());
+                }
+            };
+
+            // try to simplify equality operators ==, !=, ^
+            bool? equality = null;
+            if (b.Kind == SyntaxKind.EqualsExpression) equality = true;
+            if (b.Kind == SyntaxKind.ExclusiveOrExpression || b.Kind == SyntaxKind.NotEqualsExpression) equality = false;
+            if (equality != null) {
+                if (lv != null) useRight(lv != equality);
+                if (rv != null) useLeft(rv != equality);
+                if (cmp != null) useBool(cmp == equality);
             }
+            
+            // try to simplify and/or operators &&, &, ||, |
+            var sticky = b.Kind.IsAndBL() ? false 
+                       : b.Kind.IsOrBL() ? true
+                       : (bool?)null;
+            if (sticky != null) {
+                if (b.Kind.IsShortCircuitingLogic() && lv == sticky) rightEffects = false; // short-circuit prevents effects
+                if (cmp == true || lv == !sticky) useRight(true);
+                if (cmp == true || rv == !sticky) useLeft(true);
+                if (cmp == false || lv == sticky || rv == sticky) useBool(sticky.Value);
+            }
+
+            // expose simplifications as code issues/actions
             if (actions.Count == 0) return null;
-            return new[] { new CodeIssue(CodeIssue.Severity.Warning, binaryNode.OperatorToken.Span, "Reducible boolean operation", actions.Distinct().ToArray()) };
+            return new[] { 
+                new CodeIssue(CodeIssue.Severity.Warning, 
+                              b.OperatorToken.Span, 
+                              "Boolean operation can be simplified.", 
+                              actions) 
+            };
         }
 
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxToken token, CancellationToken cancellationToken) {

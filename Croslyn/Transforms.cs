@@ -15,6 +15,10 @@ public static class Transforms {
         return Syntax.LiteralExpression(b ? SyntaxKind.TrueLiteralExpression : SyntaxKind.FalseLiteralExpression);
     }
 
+    public static ExpressionSyntax MaybeInverted(this ExpressionSyntax e, bool invert) {
+        return invert ? e.Inverted() : e;
+    }
+
     ///<summary>Returns an expression syntax that is the logical inverse of the given expression syntax.</summary>
     public static ExpressionSyntax Inverted(this ExpressionSyntax e) {
         var cv = e.TryGetConstBoolValue();

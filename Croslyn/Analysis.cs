@@ -10,6 +10,15 @@ using Strilbrary.Collections;
 using Roslyn.Compilers;
 
 public static class Analysis {
+    public static bool IsShortCircuitingLogic(this SyntaxKind kind) {
+        return kind == SyntaxKind.LogicalAndExpression || kind == SyntaxKind.LogicalOrExpression;
+    }
+    public static bool IsOrBL(this SyntaxKind kind) {
+        return kind == SyntaxKind.LogicalOrExpression || kind == SyntaxKind.BitwiseOrExpression;
+    }
+    public static bool IsAndBL(this SyntaxKind kind) {
+        return kind == SyntaxKind.LogicalAndExpression || kind == SyntaxKind.BitwiseAndExpression;
+    }
     ///<summary>The statements in a block statement or, if not a block statement, the single statement.</summary>
     public static StatementSyntax[] Statements(this StatementSyntax e) {
         return e is BlockSyntax ? ((BlockSyntax)e).Statements.ToArray() : new[] { e };
