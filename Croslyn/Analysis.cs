@@ -38,16 +38,16 @@ public static class Analysis {
                .Where(e => e.Identifier.ValueText == localVar.ValueText);
     }
 
-    public static bool? TryGetAlternativeEquivalence(this ExpressionSyntax expression, ExpressionSyntax other, ISemanticModel model) {
+    public static bool? TryEvalAlternativeComparison(this ExpressionSyntax expression, ExpressionSyntax other, ISemanticModel model) {
         var val1 = expression.TryGetConstBoolValue();
         var val2 = other.TryGetConstBoolValue();
         if (val1.HasValue != val2.HasValue) return null;
         if (val1.HasValue) return val1.Value == val2.Value;
 
-        if (expression is ParenthesizedExpressionSyntax) return ((ParenthesizedExpressionSyntax)expression).Expression.TryGetAlternativeEquivalence(other, model);
-        if (other is ParenthesizedExpressionSyntax) return expression.TryGetAlternativeEquivalence(((ParenthesizedExpressionSyntax)other).Expression, model);
-        if (expression.Kind == SyntaxKind.LogicalNotExpression) return !((PrefixUnaryExpressionSyntax)expression).Operand.TryGetAlternativeEquivalence(other, model);
-        if (other.Kind == SyntaxKind.LogicalNotExpression) return !expression.TryGetAlternativeEquivalence(((PrefixUnaryExpressionSyntax)other).Operand, model);
+        if (expression is ParenthesizedExpressionSyntax) return ((ParenthesizedExpressionSyntax)expression).Expression.TryEvalAlternativeComparison(other, model);
+        if (other is ParenthesizedExpressionSyntax) return expression.TryEvalAlternativeComparison(((ParenthesizedExpressionSyntax)other).Expression, model);
+        if (expression.Kind == SyntaxKind.LogicalNotExpression) return !((PrefixUnaryExpressionSyntax)expression).Operand.TryEvalAlternativeComparison(other, model);
+        if (other.Kind == SyntaxKind.LogicalNotExpression) return !expression.TryEvalAlternativeComparison(((PrefixUnaryExpressionSyntax)other).Operand, model);
 
         if (expression.HasSideEffects(model).IsProbablyFalse 
             && expression.WithoutAnyTriviaOrInternalTrivia().ToString() == other.WithoutAnyTriviaOrInternalTrivia().ToString()) 

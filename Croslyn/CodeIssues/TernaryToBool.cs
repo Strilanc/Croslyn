@@ -26,25 +26,49 @@ namespace Croslyn.CodeIssues {
             var model = document.GetSemanticModel();
 
             var ternaryNode = (ConditionalExpressionSyntax)node;
-            if (model.GetSemanticInfo(ternaryNode).Type.SpecialType != SpecialType.System_Boolean) return null;
+            if (!ternaryNode.DefinitelyHasBooleanType(model)) return null;
+            var whenTrueFalseCmp = ternaryNode.WhenTrue.TryEvalAlternativeComparison(ternaryNode.WhenFalse, model);
 
-            var conditionNeeded = !ternaryNode.Condition.HasSideEffects(model).IsProbablyFalse;
-            var cmp = ternaryNode.WhenTrue.TryGetAlternativeEquivalence(ternaryNode.WhenFalse, model);
-            if (cmp == true) {
-                var action = new ReadyCodeAction("Replace with branch", editFactory, document, ternaryNode, () => ternaryNode.WhenTrue);
-                var action2 = new ReadyCodeAction("Combine branches (keeping condition evaluation)", editFactory, document, ternaryNode, () => {
-                    return ternaryNode.Condition.Bracketed().BOpLogicalAnd(Syntax.LiteralExpression(SyntaxKind.FalseLiteralExpression)).Bracketed().BOpLogicalOr(ternaryNode.WhenTrue);
-                });
-                var actions = conditionNeeded ? new ICodeAction[] { action, action2 } : new ICodeAction[] { action };
-                return new[] { new CodeIssue(CodeIssue.Severity.Warning, ternaryNode.QuestionToken.Span, "Conditional expression is equivalent to branches", actions) };
+            var actions = new List<ICodeAction>();
+            if (whenTrueFalseCmp == true) {
+                // (c ? b : b) --> b
+                actions.Add(new ReadyCodeAction(
+                    "Simplify", 
+                    editFactory, 
+                    document, 
+                    ternaryNode, 
+                    () => ternaryNode.WhenTrue));
+                
+                // if condition has side effects we may need to keep it
+                // (c ? b : b) --> ((c && false) || b)
+                if (!ternaryNode.Condition.HasSideEffects(model).IsProbablyFalse) {
+                    var replacement = ternaryNode.Condition.Bracketed().BOpLogicalAnd(Syntax.LiteralExpression(SyntaxKind.FalseLiteralExpression)).Bracketed().BOpLogicalOr(ternaryNode.WhenTrue);
+                    actions.Add(new ReadyCodeAction(
+                        "Simplify (keeping condition evaluation)", 
+                        editFactory, 
+                        document, 
+                        ternaryNode, 
+                        () => replacement));
+                }
+                
             }
-            if (cmp == false) {
-                var action = new ReadyCodeAction("Combine branches", editFactory, document, ternaryNode, () => {
-                    return ternaryNode.Condition.Bracketed().BOpEquals(ternaryNode.WhenTrue);
-                });
-                return action.CodeIssues1(CodeIssue.Severity.Warning, ternaryNode.QuestionToken.Span, "Conditional expression has logically opposite branches");
+            if (whenTrueFalseCmp == false) {
+                // (c ? b : !b) --> (c == b)
+                var replacement = ternaryNode.Condition.Bracketed().BOpEquals(ternaryNode.WhenTrue);
+                var action = new ReadyCodeAction(
+                    "Simplify", 
+                    editFactory, 
+                    document, 
+                    ternaryNode, 
+                    () => replacement);
             }
-            return null;
+
+            if (actions.Count == 0) return null;
+            return new[] { new CodeIssue(
+                    CodeIssue.Severity.Warning, 
+                    ternaryNode.QuestionToken.Span, 
+                    "Conditional expression can be simplified into boolean expression.", 
+                    actions) };
         }
 
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxToken token, CancellationToken cancellationToken) {

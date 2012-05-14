@@ -41,7 +41,7 @@ namespace Croslyn.CodeIssues {
                              .TakeWhile(e => e.HasSideEffects(model).IsProbablyFalse)
                              .LastOrDefault();
             if (projection == null) return null;
-            if (projection.TryGetAlternativeEquivalence(singleRead, model) == true) return null;
+            if (projection.TryEvalAlternativeComparison(singleRead, model) == true) return null;
 
             // build replacement loop
             var projectedCollection = forLoop.Expression

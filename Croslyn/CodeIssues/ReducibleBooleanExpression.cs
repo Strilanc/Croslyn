@@ -33,7 +33,7 @@ namespace Croslyn.CodeIssues {
             var rightEffects = !b.Right.HasSideEffects(model).IsProbablyFalse;
             var lv = b.Left.TryGetConstBoolValue();
             var rv = b.Right.TryGetConstBoolValue();
-            var cmp = b.Left.TryGetAlternativeEquivalence(b.Right, model);
+            var cmp = b.Left.TryEvalAlternativeComparison(b.Right, model);
 
             // prep utility funcs for adding simplifications
             var actions = new List<ICodeAction>();
