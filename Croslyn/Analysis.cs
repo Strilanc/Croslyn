@@ -538,7 +538,7 @@ public static class Analysis {
         var prev = syntax.TryGetPrevStatement();
         if (prev == null) return null;
 
-        if (trueAction.Overwrites(prev, model) != true) return null;
+        if (trueAction.EffectsOverwriteEffectsOf(prev, model) != true) return null;
         return new ImplicitSingleStatementBranches(trueAction, prev, prev);
     }
 
@@ -549,12 +549,17 @@ public static class Analysis {
         return parent.Statements.TakeWhile(e => e != syntax).FirstOrDefault()
             ?? parent.TryGetPrevStatement();
     }
-    ///<summary>Determines if executing the statement is equivalent to executing the statement after the given previous statement.</summary>
-    public static bool? Overwrites(this StatementSyntax syntax, StatementSyntax prev, ISemanticModel model) {
+    ///<summary>Determines if the effects of executing the statement with/without the given previous statement are equivalent.</summary>
+    public static bool? EffectsOverwriteEffectsOf(this StatementSyntax syntax, StatementSyntax prev, ISemanticModel model) {
         if (prev.IsGuaranteedToJumpOut()) return false;
-        if (prev.HasSideEffects(model).IsProbablyFalse) return true;
+        if (prev.HasSideEffects(model).IsProbablyFalse) return null;
 
-        if (syntax.HasMatchingLHSOrRet(prev, model)) return true;
-        return false;
+        if (prev.IsAssignmentOrSingleInitialization()) {
+            var rhs = prev.TryGetRHSOfAssignmentOrInit();
+            if (rhs.HasSideEffects().IsProbablyFalse && syntax.HasMatchingLHSOrRet(prev, model))
+                return true;
+            return null;
+        }
+        return null;
     }
 }
