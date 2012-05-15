@@ -10,6 +10,20 @@ using Strilbrary.Collections;
 using Roslyn.Compilers;
 
 public static class Analysis {
+    public static readonly IEnumerable<SyntaxKind> AssignmentOperatorKinds = new[] {
+                SyntaxKind.AddAssignExpression,
+                SyntaxKind.AndAssignExpression,
+                SyntaxKind.AssignExpression,
+                SyntaxKind.DivideAssignExpression,
+                SyntaxKind.ExclusiveOrAssignExpression,
+                SyntaxKind.LeftShiftAssignExpression,
+                SyntaxKind.ModuloAssignExpression,
+                SyntaxKind.MultiplyAssignExpression,
+                SyntaxKind.OrAssignExpression,
+                SyntaxKind.RightShiftAssignExpression,
+                SyntaxKind.SubtractAssignExpression,
+            };
+
     public static bool IsShortCircuitingLogic(this SyntaxKind kind) {
         return kind == SyntaxKind.LogicalAndExpression || kind == SyntaxKind.LogicalOrExpression;
     }
@@ -187,19 +201,6 @@ public static class Analysis {
         if (v1 == null || v2 == null) return null;
         return true;
     }
-    public static readonly IEnumerable<SyntaxKind> AssignmentOperatorKinds = new SyntaxKind[] {
-                SyntaxKind.AddAssignExpression,
-                SyntaxKind.AndAssignExpression,
-                SyntaxKind.AssignExpression,
-                SyntaxKind.DivideAssignExpression,
-                SyntaxKind.ExclusiveOrAssignExpression,
-                SyntaxKind.LeftShiftAssignExpression,
-                SyntaxKind.ModuloAssignExpression,
-                SyntaxKind.MultiplyAssignExpression,
-                SyntaxKind.OrAssignExpression,
-                SyntaxKind.RightShiftAssignExpression,
-                SyntaxKind.SubtractAssignExpression,
-            };
     public static TentativeBool HasSideEffects(this ExpressionSyntax expression, ISemanticModel model = null) {
         if (expression is IdentifierNameSyntax) return false;
         if (expression is LiteralExpressionSyntax) return false;
@@ -316,10 +317,10 @@ public static class Analysis {
         // defaults to public if no access modifier
         return !accessKinds.Any(hasAccessorType);
     }
-    public static EqualsValueClauseSyntax NiceDefaultInitializer(this TypeSyntax syntax, ISemanticModel modelOpt) {
-        return Syntax.EqualsValueClause(value: syntax.NiceDefaultValueExpression(modelOpt));
+    public static EqualsValueClauseSyntax NiceDefaultInitializer(this TypeSyntax syntax, ISemanticModel modelOpt, bool assumeImplicitConversion) {
+        return Syntax.EqualsValueClause(value: syntax.NiceDefaultValueExpression(modelOpt, assumeImplicitConversion));
     }
-    public static ExpressionSyntax NiceDefaultValueExpression(this TypeSyntax syntax, ISemanticModel modelOpt) {
+    public static ExpressionSyntax NiceDefaultValueExpression(this TypeSyntax syntax, ISemanticModel modelOpt, bool assumeImplicitConversion) {
         Contract.Requires(syntax != null);
 
         var specialNumericTypes = new[] { 
@@ -336,7 +337,7 @@ public static class Analysis {
             SpecialType.System_UInt64 
         };
 
-        if (modelOpt != null) {
+        if (modelOpt != null && assumeImplicitConversion) {
             var typeInfo = modelOpt.GetSemanticInfo(syntax).ConvertedType;
             if (typeInfo.SpecialType == SpecialType.System_Boolean)
                 return Syntax.LiteralExpression(SyntaxKind.FalseLiteralExpression, Syntax.Token(SyntaxKind.FalseKeyword));

@@ -14,6 +14,9 @@ public static class Transforms {
     public static LiteralExpressionSyntax AsLiteral(this bool b) {
         return Syntax.LiteralExpression(b ? SyntaxKind.TrueLiteralExpression : SyntaxKind.FalseLiteralExpression);
     }
+    public static LiteralExpressionSyntax AsLiteral(this int i) {
+        return Syntax.LiteralExpression(SyntaxKind.NumericLiteralExpression, Syntax.Literal(i + "", i));
+    }
 
     public static ExpressionSyntax MaybeInverted(this ExpressionSyntax e, bool invert) {
         return invert ? e.Inverted() : e;

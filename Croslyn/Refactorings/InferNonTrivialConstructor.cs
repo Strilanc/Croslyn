@@ -62,7 +62,10 @@ namespace Croslyn.Refactorings {
                 where !d.IsReadOnly()
                 where d.IsPublic()
                 from v in d.Declaration.Variables
-                select new { id = v.Identifier, type = d.Declaration.Type, init = v.InitializerOpt ?? d.Declaration.Type.NiceDefaultInitializer(model) };
+                select new { 
+                    id = v.Identifier, 
+                    type = d.Declaration.Type, 
+                    init = v.InitializerOpt ?? d.Declaration.Type.NiceDefaultInitializer(model, assumeImplicitConversion: true) };
 
             var uninitializedReadonlyFields =
                 from d in syntax.Members.OfType<FieldDeclarationSyntax>()
@@ -70,14 +73,20 @@ namespace Croslyn.Refactorings {
                 where d.IsReadOnly()
                 from v in d.Declaration.Variables
                 where v.InitializerOpt == null
-                select new { id = v.Identifier, type = d.Declaration.Type, init = (EqualsValueClauseSyntax)null };
+                select new { 
+                    id = v.Identifier, 
+                    type = d.Declaration.Type, 
+                    init = (EqualsValueClauseSyntax)null };
 
             var publicSetAutoProperties =
                 from d in syntax.Members.OfType<PropertyDeclarationSyntax>()
                 where !d.IsStatic()
                 where d.IsPublicSettable()
                 where d.IsAutoProperty()
-                select new { id = d.Identifier, type = d.Type, init = d.Type.NiceDefaultInitializer(model) };
+                select new { 
+                    id = d.Identifier, 
+                    type = d.Type, 
+                    init = d.Type.NiceDefaultInitializer(model, assumeImplicitConversion: true) };
 
             var initializables = uninitializedReadonlyFields.Concat(publicMutableFields).Concat(publicSetAutoProperties).ToArray();
             if (initializables.Length == 0) return null; //trivial
