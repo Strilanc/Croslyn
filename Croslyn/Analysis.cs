@@ -213,13 +213,21 @@ public static class Analysis {
             if (i.ArgumentList.Arguments.Any(e => e.RefOrOutKeywordOpt != null)) return true;
             return Enumerable.Max(i.ArgumentList.Arguments.Select(e => e.Expression.HasSideEffects(model)).Append(i.Expression.HasSideEffects(model), TentativeBool.Unknown));
         }
+        if (expression is PostfixUnaryExpressionSyntax) {
+            var u = (PostfixUnaryExpressionSyntax)expression;
+            var unsafeOperators = new[] { SyntaxKind.PostDecrementExpression, SyntaxKind.PostIncrementExpression };
+            if (unsafeOperators.Contains(u.Kind)) return true;
+            return TentativeBool.Unknown;
+        }
         if (expression is PrefixUnaryExpressionSyntax) {
             var u = (PrefixUnaryExpressionSyntax)expression;
-            var shouldBeSafeOperators = new SyntaxKind[] {
+            var shouldBeSafeOperators = new[] {
                 SyntaxKind.LogicalNotExpression,
                 SyntaxKind.BitwiseNotExpression,
                 SyntaxKind.NegateExpression,
             };
+            var unsafeOperators = new[] { SyntaxKind.PreDecrementExpression, SyntaxKind.PreIncrementExpression };
+            if (unsafeOperators.Contains(u.Kind)) return true;
             var op = shouldBeSafeOperators.Contains(u.Kind) 
                    ? TentativeBool.ProbablyFalse 
                    : TentativeBool.Unknown;
@@ -227,7 +235,7 @@ public static class Analysis {
         }
         if (expression is BinaryExpressionSyntax) {
             var b = (BinaryExpressionSyntax)expression;
-            var shouldBeSafeOperators = new SyntaxKind[] {
+            var shouldBeSafeOperators = new[] {
                 SyntaxKind.EqualsExpression,
                 SyntaxKind.NotEqualsExpression,
                 SyntaxKind.AddExpression,
