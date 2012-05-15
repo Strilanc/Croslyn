@@ -3,13 +3,27 @@ Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Croslyn", "Croslyn\Croslyn.csproj", "{ED3F6300-708A-4027-8E5E-F3D28D7AD8A3}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CroslynTest", "CroslynTest\CroslynTest.csproj", "{09C1CCB3-91C5-49D1-BB8E-4B6C4FF7A959}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{85C84C80-0B27-4C8B-924B-F8A53D99E766}"
+	ProjectSection(SolutionItems) = preProject
+		Croslyn.vsmdi = Croslyn.vsmdi
+		Local.testsettings = Local.testsettings
+		TraceAndTestImpact.testsettings = TraceAndTestImpact.testsettings
+	EndProjectSection
+EndProject
 Global
+	GlobalSection(TestCaseManagementSettings) = postSolution
+		CategoryFile = Croslyn.vsmdi
+	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Dev|Any CPU = Dev|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{ED3F6300-708A-4027-8E5E-F3D28D7AD8A3}.Dev|Any CPU.ActiveCfg = Dev|Any CPU
 		{ED3F6300-708A-4027-8E5E-F3D28D7AD8A3}.Dev|Any CPU.Build.0 = Dev|Any CPU
+		{09C1CCB3-91C5-49D1-BB8E-4B6C4FF7A959}.Dev|Any CPU.ActiveCfg = Dev|Any CPU
+		{09C1CCB3-91C5-49D1-BB8E-4B6C4FF7A959}.Dev|Any CPU.Build.0 = Dev|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

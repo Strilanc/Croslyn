@@ -14,7 +14,7 @@ using Strilbrary.Values;
 
 namespace Croslyn.CodeIssues {
     [ExportSyntaxNodeCodeIssueProvider("Croslyn", LanguageNames.CSharp, typeof(ConditionalExpressionSyntax))]
-    internal class ReducibleConditionalExpression : ICodeIssueProvider {
+    public class ReducibleConditionalExpression : ICodeIssueProvider {
         private readonly ICodeActionEditFactory editFactory;
 
         [ImportingConstructor]
@@ -37,7 +37,7 @@ namespace Croslyn.CodeIssues {
                 actions);
         }
 
-        public static IEnumerable<ReplaceAction> GetSimplifications(ConditionalExpressionSyntax ternaryNode, ISemanticModel model, CancellationToken cancellationToken) {
+        public static IEnumerable<ReplaceAction> GetSimplifications(ConditionalExpressionSyntax ternaryNode, ISemanticModel model, CancellationToken cancellationToken = default(CancellationToken)) {
             if (!ternaryNode.DefinitelyHasBooleanType(model)) yield break;
             var whenTrueFalseCmp = ternaryNode.WhenTrue.TryEvalAlternativeComparison(ternaryNode.WhenFalse, model);
 
