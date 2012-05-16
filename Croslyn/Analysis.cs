@@ -65,9 +65,6 @@ public static class Analysis {
              : new[] { e };
     }
 
-    public static IEnumerable<IdentifierNameSyntax> ReadsOfLocalVariable(this SyntaxNode scope, IdentifierNameSyntax localVar) {
-        return scope.ReadsOfLocalVariable(localVar);
-    }
     public static IEnumerable<IdentifierNameSyntax> ReadsOfLocalVariable(this SyntaxNode scope, SyntaxToken localVar) {
         return scope.DescendentNodes()
                .OfType<IdentifierNameSyntax>()

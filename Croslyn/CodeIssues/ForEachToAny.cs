@@ -27,7 +27,6 @@ namespace Croslyn.CodeIssues {
             var model = document.GetSemanticModel();
 
             // loop body idempotent and independent of the iterator?
-            if (forLoop.Statement.ReadsOfLocalVariable(forLoop.Identifier).Any()) return null;
             if (!forLoop.IsAnyIterationSufficient(model).IsProbablyTrue) return null;
 
             // build replacement if statement, if possible

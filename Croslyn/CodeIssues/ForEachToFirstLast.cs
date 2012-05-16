@@ -25,14 +25,9 @@ namespace Croslyn.CodeIssues {
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {
             var forLoop = (ForEachStatementSyntax)node;
             var model = document.GetSemanticModel();
+            if (forLoop.IsAnyIterationSufficient(model).IsProbablyTrue) return null; // a more appropriate code issue handles this case
 
             // can the loop be replaced by its first or last iteration?
-            var loopStatements = forLoop.Statement.Statements();
-            if (loopStatements.None()) return null;
-            var rawThenStatements = loopStatements.SkipLast(loopStatements.Last().IsIntraLoopJump() ? 1 : 0).ToArray();
-            if (rawThenStatements.Any(e => e.HasTopLevelIntraLoopJumps())) return null;
-            var iteratorReads = forLoop.Statement.ReadsOfLocalVariable(forLoop.Identifier).ToArray();
-            if (iteratorReads.Length == 0) return null;
             var isFirstSufficient = forLoop.IsFirstIterationSufficient(model).IsProbablyTrue;
             var isLastSufficient = forLoop.IsLastIterationSufficient(model).IsProbablyTrue;
             var firstVsLast = isFirstSufficient ? "First"
@@ -40,7 +35,12 @@ namespace Croslyn.CodeIssues {
                             : null;
             if (firstVsLast == null) return null;
 
-            // using a nullable type (so that a null result definitively indicates an empty collection)
+            // do we know how to translate?
+            var loopStatements = forLoop.Statement.Statements();
+            var rawThenStatements = loopStatements.SkipLast(loopStatements.Last().IsIntraLoopJump() ? 1 : 0).ToArray();
+            if (rawThenStatements.Any(e => e.HasTopLevelIntraLoopJumps())) return null; // don't know how to translate jumps that aren't at the end
+
+            // wrap collection items in a type with a new null value (so that a null result definitively indicates an empty collection)
             var iteratorType = ((LocalSymbol)model.GetDeclaredSymbol(forLoop)).Type;
             var nuller = GetNullabledQueryAndValueGetter(iteratorType, forLoop.Identifier, forLoop.Expression);
             var nullableQuery = nuller.Item1;
@@ -49,6 +49,7 @@ namespace Croslyn.CodeIssues {
             var tempNullableLocalGet = Syntax.IdentifierName(tempNullableLocalName);
 
             // build replacement
+            var iteratorReads = forLoop.Statement.ReadsOfLocalVariable(forLoop.Identifier).ToArray();
             var desiredIterationQuery = nullableQuery.Accessing(firstVsLast + "OrDefault").Invoking();
             var condition = tempNullableLocalGet.BOpNotEquals(Syntax.LiteralExpression(SyntaxKind.NullLiteralExpression));
             var useDenulledLocal = iteratorReads.Length > 2;
