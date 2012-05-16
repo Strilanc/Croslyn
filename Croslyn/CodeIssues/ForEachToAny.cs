@@ -28,7 +28,7 @@ namespace Croslyn.CodeIssues {
 
             // loop body idempotent and independent of the iterator?
             if (forLoop.Statement.ReadsOfLocalVariable(forLoop.Identifier).Any()) return null;
-            if (!forLoop.Statement.IsLoopVarFirstpotent(model).IsProbablyTrue) return null;
+            if (!forLoop.IsAnyIterationSufficient(model).IsProbablyTrue) return null;
 
             // build replacement if statement, if possible
             var loopStatements = forLoop.Statement.Statements();

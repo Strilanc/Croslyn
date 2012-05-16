@@ -150,12 +150,12 @@ public static class Transforms {
                                  (e,a) => e.Dropped());
     }
 
-    public static StatementSyntax DropEmptyBranchesIfApplicable(this IfStatementSyntax syntax) {
+    public static StatementSyntax DropEmptyBranchesIfApplicable(this IfStatementSyntax syntax, ISemanticModel model = null) {
         Contract.Requires(syntax != null);
 
-        var canOmitCondition = syntax.Condition.HasSideEffects().IsProbablyFalse;
-        var canOmitTrueBranch = syntax.Statement.HasSideEffects().IsProbablyFalse;
-        var canOmitFalseBranch = syntax.ElseStatementOrEmptyBlock().HasSideEffects().IsProbablyFalse;
+        var canOmitCondition = syntax.Condition.HasSideEffects(model).IsProbablyFalse;
+        var canOmitTrueBranch = syntax.Statement.HasSideEffects(model).IsProbablyFalse;
+        var canOmitFalseBranch = syntax.ElseStatementOrEmptyBlock().HasSideEffects(model).IsProbablyFalse;
 
         // can we get rid of the 'if' usage?
         if (canOmitTrueBranch && canOmitFalseBranch && canOmitCondition)

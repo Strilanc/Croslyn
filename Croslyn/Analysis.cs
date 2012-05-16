@@ -10,6 +10,28 @@ using Strilbrary.Collections;
 using Roslyn.Compilers;
 
 public static class Analysis {
+    public static readonly IEnumerable<SyntaxKind> ProbablySafeBinaryOperators = new[] {
+                SyntaxKind.EqualsExpression,
+                SyntaxKind.NotEqualsExpression,
+                SyntaxKind.AddExpression,
+                SyntaxKind.PlusExpression,
+                SyntaxKind.SubtractExpression,
+                SyntaxKind.MultiplyExpression,
+                SyntaxKind.DivideExpression,
+                SyntaxKind.ModuloExpression,
+                SyntaxKind.LessThanExpression,
+                SyntaxKind.LessThanOrEqualExpression,
+                SyntaxKind.GreaterThanExpression,
+                SyntaxKind.GreaterThanOrEqualExpression,
+                SyntaxKind.BitwiseAndExpression,
+                SyntaxKind.BitwiseOrExpression,
+                SyntaxKind.ExclusiveOrExpression,
+                SyntaxKind.LogicalAndExpression,
+                SyntaxKind.LogicalOrExpression,
+                SyntaxKind.CoalesceExpression,
+                SyntaxKind.LeftShiftExpression,
+                SyntaxKind.RightShiftExpression,
+            };
     public static readonly IEnumerable<SyntaxKind> AssignmentOperatorKinds = new[] {
                 SyntaxKind.AddAssignExpression,
                 SyntaxKind.AndAssignExpression,
@@ -101,51 +123,164 @@ public static class Analysis {
         if (b != null) return b.Statements.Count > 0 && b.Statements.Last().IsGuaranteedToJumpOut(includeContinue);
         return false;
     }
-    public static TentativeBool IsLoopVarFirstpotent(this ExpressionSyntax syntax, ISemanticModel model = null, IEnumerable<ExpressionSyntax> loopVarReads = null) {
-        if (loopVarReads != null && loopVarReads.Contains(syntax)) return false;
-        if (syntax is LiteralExpressionSyntax) return true;
-        if (syntax.Kind == SyntaxKind.AssignExpression) {
-            var b = (BinaryExpressionSyntax)syntax;
-            if (b.Left is IdentifierNameSyntax) return b.Right.IsLoopVarFirstpotent(model, loopVarReads);
-        }
-        return TentativeBool.Unknown;
-    }
     public static bool DefinitelyHasBooleanType(this ExpressionSyntax expression, ISemanticModel model) {
         var type = model.GetSemanticInfo(expression).Type;
         if (type == null) return false;
         return type.SpecialType == SpecialType.System_Boolean;
     }
-    public static TentativeBool IsLoopVarFirstpotent(this StatementSyntax syntax, ISemanticModel model = null, IEnumerable<ExpressionSyntax> loopVarReads = null) {
-        if (syntax is BlockSyntax) {
-            if (syntax.IsGuaranteedToJumpOut(includeContinue: false)) return true;
-            return syntax.Statements().Min(e => e.IsLoopVarFirstpotent(model, loopVarReads));
+    public static TentativeBool IsAnyIterationSufficient(this ForEachStatementSyntax syntax, ISemanticModel model) {
+        Contract.Requires(syntax != null);
+        Contract.Requires(model != null);
+        // shouldn't depend on iterator value
+        if (model.AnalyzeRegionDataFlow(syntax.Statement.Span).ReadInside.Contains(model.GetDeclaredSymbol(syntax)))
+            return TentativeBool.ProbablyFalse;
+        // always jumping out of the loop on the first iteration, and independence from iterator value, should mean equivalence
+        // unless the collection iterator has side-effects... but that's bad form, so probably true
+        if (syntax.IsGuaranteedToJumpOut(includeContinue: false)) 
+            return TentativeBool.ProbablyTrue;
+        return syntax.Statement.IsIdempotent(model);
+    }
+    public static TentativeBool IsConst(this ExpressionSyntax syntax, ISemanticModel model) {
+        if (syntax is LiteralExpressionSyntax) return true;
+        if (syntax is DefaultExpressionSyntax) return true;
+        if (syntax is ParenthesizedExpressionSyntax) return (syntax as ParenthesizedExpressionSyntax).Expression.IsConst(model);
+        if (ProbablySafeBinaryOperators.Contains(syntax.Kind)) {
+            var b = (BinaryExpressionSyntax)syntax;
+            return b.Left.IsConst(model).Min(b.Right.IsConst(model)).Min(TentativeBool.ProbablyTrue);
         }
-        if (syntax is ReturnStatementSyntax) return true;
-        if (syntax is BreakStatementSyntax) return true;
-        if (syntax is ContinueStatementSyntax) return true;
-        if (syntax is ThrowStatementSyntax) return true;
-        if (syntax is ExpressionStatementSyntax) return ((ExpressionStatementSyntax)syntax).Expression.IsLoopVarFirstpotent(model, loopVarReads);
         return TentativeBool.Unknown;
     }
-    public static TentativeBool IsLoopVarLastpotent(this ExpressionSyntax syntax, ISemanticModel model = null, IEnumerable<ExpressionSyntax> loopVarReads = null) {
-        if (loopVarReads.Contains(syntax)) return true;
-        if (syntax is LiteralExpressionSyntax) return true;
+    public static TentativeBool IsIdempotent(this StatementSyntax syntax, ISemanticModel model) {
+        if (syntax is EmptyStatementSyntax) return true;
+        if (syntax.IsGuaranteedToJumpOut()) return true;
+
+        if (syntax is BlockSyntax) {
+            var b = (BlockSyntax)syntax;
+            if (b.Statements.Count == 0) return true;
+            if (b.Statements.Count == 1) return b.Statements.Single().IsIdempotent(model);
+            var m = syntax.Statements().Min(e => e.IsIdempotent(model));
+            if (!m.IsProbablyTrue) return m;
+            var assigned = syntax.DescendentNodes()
+                           .Where(e => e.Kind == SyntaxKind.AssignExpression)
+                           .Cast<BinaryExpressionSyntax>()
+                           .Select(e => e.Left)
+                           .ToArray();
+            var assignedSymbols = assigned.Select(e => model.GetSemanticInfo(e).Symbol);
+            var reads = syntax.DescendentNodes()
+                        .Except(assigned)
+                        .Select(e => model.GetSemanticInfo(e).Symbol);
+            if (!reads.Intersect(assignedSymbols).Any()) return TentativeBool.ProbablyTrue;
+            return TentativeBool.Unknown;
+        }
+        if (syntax is ExpressionStatementSyntax) 
+            return ((ExpressionStatementSyntax)syntax).Expression.IsIdempotent(model);
+        return TentativeBool.Unknown;
+    }
+    public static TentativeBool IsIdempotent(this ExpressionSyntax syntax, ISemanticModel model) {
+        if (syntax is ParenthesizedExpressionSyntax) return ((ParenthesizedExpressionSyntax)syntax).Expression.IsIdempotent(model);
+        if (syntax is IdentifierNameSyntax) return true;
+        if (syntax is InvocationExpressionSyntax) return TentativeBool.Unknown;
+        if (syntax is MemberAccessExpressionSyntax) {
+            var m = (MemberAccessExpressionSyntax)syntax;
+            return m.Expression.IsIdempotent(model).Min(TentativeBool.ProbablyTrue);
+        };
         if (syntax.Kind == SyntaxKind.AssignExpression) {
             var b = (BinaryExpressionSyntax)syntax;
-            if (b.Left is IdentifierNameSyntax) return b.Right.IsLoopVarLastpotent(model, loopVarReads);
+            if (b.Left is IdentifierNameSyntax) {
+                var effects = b.Right.HasSideEffects(model);
+                if (effects.IsProbablyFalse) return effects.Inverse;
+            }
+        } else if (AssignmentOperatorKinds.Contains(syntax.Kind)) {
+            return TentativeBool.ProbablyFalse;
+        }
+
+        var isConst = syntax.IsConst(model);
+        if (isConst.IsProbablyTrue) return isConst;
+
+        return TentativeBool.Unknown;
+    }
+
+    public static TentativeBool IsFirstIterationSufficient(this ForEachStatementSyntax syntax, ISemanticModel model) {
+        Contract.Requires(syntax != null);
+        Contract.Requires(model != null);
+        
+        // always breaks outs? then only the first iteration CAN happen
+        if (syntax.Statement.IsGuaranteedToJumpOut(includeContinue: false)) return true;
+        
+        // any iteration works? then so does the first one
+        var anyIsGood = syntax.IsAnyIterationSufficient(model);
+        if (anyIsGood.IsProbablyTrue) return anyIsGood;
+
+        return TentativeBool.Unknown;
+    }
+
+    public static TentativeBool IsLastIterationSufficient(this ForEachStatementSyntax syntax, ISemanticModel model) {
+        Contract.Requires(syntax != null);
+        Contract.Requires(model != null);
+        
+        // any iteration works? then so does the last one
+        // if not any iteration works and we aren't using the iterator then the last one shouldn't work
+        var anyIsGood = syntax.IsAnyIterationSufficient(model);
+        var usesIterator = model.AnalyzeRegionDataFlow(syntax.Statement.Span).ReadInside.Contains(model.GetDeclaredSymbol(syntax));
+        if (!usesIterator || anyIsGood.IsProbablyTrue) return anyIsGood.Max(TentativeBool.ProbablyFalse);
+
+        if (syntax.DescendentNodes(e => e is StatementSyntax).Any(e => e is BreakStatementSyntax || e is ReturnStatementSyntax || e is ThrowStatementSyntax))
+            return TentativeBool.ProbablyFalse; //loop might end before last iteration
+
+        return syntax.Statement.IsLastIterationSufficient_Helper(model, model.GetDeclaredSymbol(syntax));
+    }
+    public static TentativeBool IsLastIterationSufficient_Helper(this StatementSyntax syntax, ISemanticModel model, ISymbol iteratorVariable) {
+        Contract.Requires(syntax != null);
+        Contract.Requires(model != null);
+        Contract.Requires(iteratorVariable != null);
+
+        if (syntax is ContinueStatementSyntax) return true;
+        if (syntax is BlockSyntax) {
+            var b = (BlockSyntax)syntax;
+            if (b.Statements.Count == 0) return true;
+            if (b.Statements.Count == 1) return b.Statements.Single().IsLastIterationSufficient_Helper(model, iteratorVariable);
+            var m = syntax.Statements().Min(e => e.IsLastIterationSufficient_Helper(model, iteratorVariable));
+            if (!m.IsProbablyTrue) return m;
+            var assigned = syntax.DescendentNodes()
+                           .Where(e => e.Kind == SyntaxKind.AssignExpression)
+                           .Cast<BinaryExpressionSyntax>()
+                           .Select(e => e.Left)
+                           .ToArray();
+            var assignedSymbols = assigned.Select(e => model.GetSemanticInfo(e).Symbol);
+            var reads = syntax.DescendentNodes()
+                        .Except(assigned)
+                        .Select(e => model.GetSemanticInfo(e).Symbol);
+            if (!reads.Intersect(assignedSymbols).Any()) return TentativeBool.ProbablyTrue;
+            return TentativeBool.Unknown;
+        }
+        if (syntax is ExpressionStatementSyntax)
+            return ((ExpressionStatementSyntax)syntax).Expression.IsLastIterationSufficient_Helper(model, iteratorVariable);
+        return TentativeBool.Unknown;
+    }
+    public static TentativeBool IsLastIterationSufficient_Helper(this ExpressionSyntax syntax, ISemanticModel model, ISymbol iteratorVariable) {
+        Contract.Requires(syntax != null);
+        Contract.Requires(model != null);
+        Contract.Requires(iteratorVariable != null);
+
+        var isConst = syntax.IsConst(model);
+        if (isConst.IsProbablyTrue) return isConst;
+        if (syntax is IdentifierNameSyntax && model.GetSemanticInfo(syntax).Symbol == iteratorVariable) return true;
+        if (syntax.Kind == SyntaxKind.AssignExpression) {
+            var b = (BinaryExpressionSyntax)syntax;
+            if (b.Left is IdentifierNameSyntax) {
+                return b.Right.IsLastIterationSufficient_Helper2(model, iteratorVariable);
+            }
         }
         return TentativeBool.Unknown;
     }
-    public static TentativeBool IsLoopVarLastpotent(this StatementSyntax syntax, ISemanticModel model = null, IEnumerable<ExpressionSyntax> loopVarReads = null) {
-        if (syntax is BlockSyntax) {
-            if (syntax.IsGuaranteedToJumpOut(includeContinue: false)) return false;
-            return syntax.Statements().Min(e => e.IsLoopVarLastpotent(model, loopVarReads));
-        }
-        if (syntax is ReturnStatementSyntax) return false;
-        if (syntax is BreakStatementSyntax) return false;
-        if (syntax is ThrowStatementSyntax) return false;
-        if (syntax is ContinueStatementSyntax) return true;
-        if (syntax is ExpressionStatementSyntax) return ((ExpressionStatementSyntax)syntax).Expression.IsLoopVarLastpotent(model, loopVarReads);
+    public static TentativeBool IsLastIterationSufficient_Helper2(this ExpressionSyntax syntax, ISemanticModel model, ISymbol iteratorVariable) {
+        Contract.Requires(syntax != null);
+        Contract.Requires(model != null);
+        Contract.Requires(iteratorVariable != null);
+
+        var isConst = syntax.IsConst(model);
+        if (isConst.IsProbablyTrue) return isConst;
+        if (syntax is IdentifierNameSyntax && model.GetSemanticInfo(syntax).Symbol == iteratorVariable) return true;
         return TentativeBool.Unknown;
     }
     public static bool HasTopLevelIntraLoopJumps(this StatementSyntax syntax) {
@@ -201,7 +336,7 @@ public static class Analysis {
         if (v1 == null || v2 == null) return null;
         return true;
     }
-    public static TentativeBool HasSideEffects(this ExpressionSyntax expression, ISemanticModel model = null) {
+    public static TentativeBool HasSideEffects(this ExpressionSyntax expression, ISemanticModel model) {
         if (expression is IdentifierNameSyntax) return false;
         if (expression is LiteralExpressionSyntax) return false;
         if (expression is DefaultExpressionSyntax) return false;
@@ -236,30 +371,8 @@ public static class Analysis {
         }
         if (expression is BinaryExpressionSyntax) {
             var b = (BinaryExpressionSyntax)expression;
-            var shouldBeSafeOperators = new[] {
-                SyntaxKind.EqualsExpression,
-                SyntaxKind.NotEqualsExpression,
-                SyntaxKind.AddExpression,
-                SyntaxKind.PlusExpression,
-                SyntaxKind.SubtractExpression,
-                SyntaxKind.MultiplyExpression,
-                SyntaxKind.DivideExpression,
-                SyntaxKind.ModuloExpression,
-                SyntaxKind.LessThanExpression,
-                SyntaxKind.LessThanOrEqualExpression,
-                SyntaxKind.GreaterThanExpression,
-                SyntaxKind.GreaterThanOrEqualExpression,
-                SyntaxKind.BitwiseAndExpression,
-                SyntaxKind.BitwiseOrExpression,
-                SyntaxKind.ExclusiveOrExpression,
-                SyntaxKind.LogicalAndExpression,
-                SyntaxKind.LogicalOrExpression,
-                SyntaxKind.CoalesceExpression,
-                SyntaxKind.LeftShiftExpression,
-                SyntaxKind.RightShiftExpression,
-            };
             if (AssignmentOperatorKinds.Contains(b.Kind)) return true;
-            var op = shouldBeSafeOperators.Contains(b.Kind) 
+            var op = ProbablySafeBinaryOperators.Contains(b.Kind) 
                    ? TentativeBool.ProbablyFalse 
                    : TentativeBool.Unknown;
             return Enumerable.Max(new[] { op, b.Left.HasSideEffects(model), b.Right.HasSideEffects(model) });
@@ -269,15 +382,15 @@ public static class Analysis {
         }
         return TentativeBool.Unknown;
     }
-    public static TentativeBool HasSideEffects(this StatementSyntax statement, ISemanticModel model = null) {
+    public static TentativeBool HasSideEffects(this StatementSyntax statement, ISemanticModel model) {
         if (statement is EmptyStatementSyntax) return false;
         var block = statement as BlockSyntax;
         if (statement is BlockSyntax) {
             if (((BlockSyntax)statement).Statements.Count == 0) return false;
-            return Enumerable.Max(((BlockSyntax)statement).Statements.Select(e => e.HasSideEffects()));
+            return Enumerable.Max(((BlockSyntax)statement).Statements.Select(e => e.HasSideEffects(model)));
         }
         if (statement is ExpressionStatementSyntax) {
-            return ((ExpressionStatementSyntax)statement).Expression.HasSideEffects();
+            return ((ExpressionStatementSyntax)statement).Expression.HasSideEffects(model);
         }
         return TentativeBool.Unknown;
     }
@@ -565,7 +678,7 @@ public static class Analysis {
 
         if (prev.IsAssignmentOrSingleInitialization()) {
             var rhs = prev.TryGetRHSOfAssignmentOrInit();
-            if (rhs.HasSideEffects().IsProbablyFalse && syntax.HasMatchingLHSOrRet(prev, model))
+            if (rhs.HasSideEffects(model).IsProbablyFalse && syntax.HasMatchingLHSOrRet(prev, model))
                 return true;
             return null;
         }
