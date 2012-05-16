@@ -21,9 +21,9 @@ public class IsAnIterationSufficient {
             }".ParseFunctionTreeFromString();
         var loop = (ForEachStatementSyntax)tree.TestGetParsedFunctionStatements().Single();
         var model = tree.GetTestSemanticModel();
-        Assert.IsTrue(loop.IsAnyIterationSufficient(model).IsProbablyFalse);
-        Assert.AreEqual(TentativeBool.True, loop.IsFirstIterationSufficient(model));
-        Assert.IsTrue(loop.IsLastIterationSufficient(model).IsProbablyFalse);
+        Assert.IsTrue(loop.IsAnyIterationSufficient(model, Assumptions.All) != true);
+        Assert.IsTrue(loop.IsFirstIterationSufficient(model, Assumptions.All) == true);
+        Assert.IsTrue(loop.IsLastIterationSufficient(model, Assumptions.All) != true);
     }
     [TestMethod()]
     public void Throw() {
@@ -35,9 +35,9 @@ public class IsAnIterationSufficient {
             }".ParseFunctionTreeFromString();
         var loop = (ForEachStatementSyntax)tree.TestGetParsedFunctionStatements().Single();
         var model = tree.GetTestSemanticModel();
-        Assert.AreEqual(TentativeBool.True, loop.IsAnyIterationSufficient(model));
-        Assert.AreEqual(TentativeBool.True, loop.IsFirstIterationSufficient(model));
-        Assert.AreEqual(TentativeBool.True, loop.IsLastIterationSufficient(model));
+        Assert.IsTrue(loop.IsAnyIterationSufficient(model, Assumptions.All) == true);
+        Assert.IsTrue(loop.IsFirstIterationSufficient(model, Assumptions.All) == true);
+        Assert.IsTrue(loop.IsLastIterationSufficient(model, Assumptions.All) == true);
     }
     [TestMethod()]
     public void MayReturn() {
@@ -50,9 +50,9 @@ public class IsAnIterationSufficient {
             }".ParseFunctionTreeFromString();
         var loop = (ForEachStatementSyntax)tree.TestGetParsedFunctionStatements().Single();
         var model = tree.GetTestSemanticModel();
-        Assert.IsTrue(loop.IsAnyIterationSufficient(model).IsProbablyFalse);
-        Assert.IsTrue(!loop.IsFirstIterationSufficient(model).IsProbablyTrue);
-        Assert.IsTrue(loop.IsLastIterationSufficient(model).IsProbablyFalse);
+        Assert.IsTrue(loop.IsAnyIterationSufficient(model, Assumptions.All) != true);
+        Assert.IsTrue(loop.IsFirstIterationSufficient(model, Assumptions.All) != true);
+        Assert.IsTrue(loop.IsLastIterationSufficient(model, Assumptions.All) != true);
     }
     [TestMethod()]
     public void RotatingAssign() {
@@ -66,9 +66,9 @@ public class IsAnIterationSufficient {
             }".ParseFunctionTreeFromString();
         var loop = (ForEachStatementSyntax)tree.TestGetParsedFunctionStatements().Single();
         var model = tree.GetTestSemanticModel();
-        Assert.IsTrue(!loop.IsAnyIterationSufficient(model).IsProbablyTrue);
-        Assert.IsTrue(!loop.IsFirstIterationSufficient(model).IsProbablyTrue);
-        Assert.IsTrue(!loop.IsLastIterationSufficient(model).IsProbablyTrue);
+        Assert.IsTrue(loop.IsAnyIterationSufficient(model, Assumptions.All) != true);
+        Assert.IsTrue(loop.IsFirstIterationSufficient(model, Assumptions.All) != true);
+        Assert.IsTrue(loop.IsLastIterationSufficient(model, Assumptions.All) != true);
     }
     [TestMethod()]
     public void AssignContinue() {
@@ -81,9 +81,9 @@ public class IsAnIterationSufficient {
             }".ParseFunctionTreeFromString();
         var loop = (ForEachStatementSyntax)tree.TestGetParsedFunctionStatements().Single();
         var model = tree.GetTestSemanticModel();
-        Assert.IsTrue(loop.IsAnyIterationSufficient(model).IsProbablyFalse);
-        Assert.IsTrue(!loop.IsFirstIterationSufficient(model).IsProbablyTrue);
-        Assert.IsTrue(loop.IsLastIterationSufficient(model).IsProbablyTrue);
+        Assert.IsTrue(loop.IsAnyIterationSufficient(model, Assumptions.All) != true);
+        Assert.IsTrue(loop.IsFirstIterationSufficient(model, Assumptions.All) != true);
+        Assert.IsTrue(loop.IsLastIterationSufficient(model, Assumptions.All) == true);
     }
     [TestMethod()]
     public void Assign() {
@@ -95,9 +95,9 @@ public class IsAnIterationSufficient {
             }".ParseFunctionTreeFromString();
         var loop = (ForEachStatementSyntax)tree.TestGetParsedFunctionStatements().Single();
         var model = tree.GetTestSemanticModel();
-        Assert.IsTrue(loop.IsAnyIterationSufficient(model).IsProbablyFalse);
-        Assert.IsTrue(!loop.IsFirstIterationSufficient(model).IsProbablyTrue);
-        Assert.AreEqual(TentativeBool.True, loop.IsLastIterationSufficient(model));
+        Assert.IsTrue(loop.IsAnyIterationSufficient(model, Assumptions.All) != true);
+        Assert.IsTrue(loop.IsFirstIterationSufficient(model, Assumptions.All) != true);
+        Assert.IsTrue(loop.IsLastIterationSufficient(model, Assumptions.All) == true);
     }
     [TestMethod()]
     public void AssignConst() {
@@ -109,8 +109,8 @@ public class IsAnIterationSufficient {
             }".ParseFunctionTreeFromString();
         var loop = (ForEachStatementSyntax)tree.TestGetParsedFunctionStatements().Single();
         var model = tree.GetTestSemanticModel();
-        Assert.AreEqual(TentativeBool.True, loop.IsAnyIterationSufficient(model));
-        Assert.AreEqual(TentativeBool.True, loop.IsFirstIterationSufficient(model));
-        Assert.AreEqual(TentativeBool.True, loop.IsLastIterationSufficient(model));
+        Assert.IsTrue(loop.IsAnyIterationSufficient(model, Assumptions.All) == true);
+        Assert.IsTrue(loop.IsFirstIterationSufficient(model, Assumptions.All) == true);
+        Assert.IsTrue(loop.IsLastIterationSufficient(model, Assumptions.All) == true);
     }
 }

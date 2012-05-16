@@ -25,11 +25,12 @@ namespace Croslyn.CodeIssues {
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {
             var forLoop = (ForEachStatementSyntax)node;
             var model = document.GetSemanticModel();
-            if (forLoop.IsAnyIterationSufficient(model).IsProbablyTrue) return null; // a more appropriate code issue handles this case
+            if (forLoop.IsAnyIterationSufficient(model, Assumptions.All) == true) 
+                return null; // a more appropriate code issue handles this case
 
             // can the loop be replaced by its first or last iteration?
-            var isFirstSufficient = forLoop.IsFirstIterationSufficient(model).IsProbablyTrue;
-            var isLastSufficient = forLoop.IsLastIterationSufficient(model).IsProbablyTrue;
+            var isFirstSufficient = forLoop.IsFirstIterationSufficient(model, Assumptions.All) == true;
+            var isLastSufficient = forLoop.IsLastIterationSufficient(model, Assumptions.All) == true;
             var firstVsLast = isFirstSufficient ? "First"
                             : isLastSufficient ? "Last"
                             : null;

@@ -48,7 +48,7 @@ public class IsConstTest {
             }".ParseFunctionTreeFromString();
         foreach (var statement in tree.TestGetParsedFunctionStatements().Skip(1)) {
             var rhs = ((statement as ExpressionStatementSyntax).Expression as BinaryExpressionSyntax).Right;
-            Assert.IsTrue(!rhs.IsConst(tree.GetTestSemanticModel()).IsProbablyTrue);
+            Assert.IsTrue(rhs.IsConst(tree.GetTestSemanticModel()) != true);
         }
     }
     [TestMethod()]
@@ -59,7 +59,7 @@ public class IsConstTest {
             }".ParseFunctionTreeFromString();
         foreach (var statement in tree.TestGetParsedFunctionStatements()) {
             var rhs = ((statement as ExpressionStatementSyntax).Expression as BinaryExpressionSyntax).Right;
-            Assert.IsTrue(rhs.IsConst(tree.GetTestSemanticModel()).IsProbablyTrue);
+            Assert.IsTrue(rhs.IsConst(tree.GetTestSemanticModel()) == true);
         }
     }
     [TestMethod()]
@@ -70,7 +70,7 @@ public class IsConstTest {
             }".ParseFunctionTreeFromString();
         foreach (var statement in tree.TestGetParsedFunctionStatements()) {
             var rhs = ((statement as ExpressionStatementSyntax).Expression as BinaryExpressionSyntax).Right;
-            Assert.IsTrue(!rhs.IsConst(tree.GetTestSemanticModel()).IsProbablyTrue);
+            Assert.IsTrue(rhs.IsConst(tree.GetTestSemanticModel()) != true);
         }
     }
     [TestMethod()]
@@ -83,7 +83,7 @@ public class IsConstTest {
             }".ParseFunctionTreeFromString();
         foreach (var statement in tree.TestGetParsedFunctionStatements()) {
             var rhs = ((statement as ExpressionStatementSyntax).Expression as BinaryExpressionSyntax).Right;
-            Assert.AreEqual(TentativeBool.True, rhs.IsConst(tree.GetTestSemanticModel()));
+            Assert.IsTrue(rhs.IsConst(tree.GetTestSemanticModel()) == true);
         }
     }
     [TestMethod()]
@@ -94,7 +94,7 @@ public class IsConstTest {
             }".ParseFunctionTreeFromString();
         foreach (var statement in tree.TestGetParsedFunctionStatements()) {
             var rhs = ((statement as ExpressionStatementSyntax).Expression as BinaryExpressionSyntax).Right;
-            Assert.IsTrue(!rhs.IsConst(tree.GetTestSemanticModel()).IsProbablyTrue);
+            Assert.IsTrue(rhs.IsConst(tree.GetTestSemanticModel()) != true);
         }
     }
 }

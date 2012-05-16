@@ -25,6 +25,13 @@ public struct TentativeBool : IEquatable<TentativeBool>, IComparable<TentativeBo
     public bool IsDefinitelyTrue { get { return _value >= True._value; } }
     public bool IsUnknown { get { return _value == Unknown._value; } }
 
+    public bool? ProbableResult {
+        get {
+            if (IsProbablyTrue) return true;
+            if (IsProbablyFalse) return false;
+            return null;
+        }
+    }
     public TentativeBool Max(TentativeBool other) {
         return new TentativeBool(Math.Max(this._value, other._value));
     }

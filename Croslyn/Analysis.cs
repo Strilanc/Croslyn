@@ -125,27 +125,30 @@ public static class Analysis {
         if (type == null) return false;
         return type.SpecialType == SpecialType.System_Boolean;
     }
-    public static TentativeBool IsAnyIterationSufficient(this ForEachStatementSyntax syntax, ISemanticModel model) {
+    public static bool? IsAnyIterationSufficient(this ForEachStatementSyntax syntax, ISemanticModel model, Assumptions assume) {
         Contract.Requires(syntax != null);
         Contract.Requires(model != null);
+        
+        if (!assume.IterationHasNoSideEffects) return null;
+        
         // shouldn't depend on iterator value
         if (model.AnalyzeRegionDataFlow(syntax.Statement.Span).ReadInside.Contains(model.GetDeclaredSymbol(syntax)))
-            return TentativeBool.ProbablyFalse;
+            return null; // probably false, but uses might happen to cancel
         // always jumping out of the loop on the first iteration, and independence from iterator value, should mean equivalence
         // unless the collection iterator has side-effects... but that's bad form, so probably true
         if (syntax.IsGuaranteedToJumpOut(includeContinue: false)) 
-            return TentativeBool.ProbablyTrue;
-        return syntax.Statement.IsIdempotent(model);
+            return true;
+        return syntax.Statement.IsIdempotent(model).ProbableResult;
     }
-    public static TentativeBool IsConst(this ExpressionSyntax syntax, ISemanticModel model) {
+    public static bool? IsConst(this ExpressionSyntax syntax, ISemanticModel model) {
         if (syntax is LiteralExpressionSyntax) return true;
         if (syntax is DefaultExpressionSyntax) return true;
         if (syntax is ParenthesizedExpressionSyntax) return (syntax as ParenthesizedExpressionSyntax).Expression.IsConst(model);
         if (ProbablySafeBinaryOperators.Contains(syntax.Kind)) {
             var b = (BinaryExpressionSyntax)syntax;
-            return b.Left.IsConst(model).Min(b.Right.IsConst(model)).Min(TentativeBool.ProbablyTrue);
+            return b.Left.IsConst(model).Min(b.Right.IsConst(model));
         }
-        return TentativeBool.Unknown;
+        return null;
     }
     public static TentativeBool IsIdempotent(this StatementSyntax syntax, ISemanticModel model) {
         if (syntax is EmptyStatementSyntax) return true;
@@ -192,41 +195,43 @@ public static class Analysis {
         }
 
         var isConst = syntax.IsConst(model);
-        if (isConst.IsProbablyTrue) return isConst;
+        if (isConst == true) return true;
 
         return TentativeBool.Unknown;
     }
 
-    public static TentativeBool IsFirstIterationSufficient(this ForEachStatementSyntax syntax, ISemanticModel model) {
+    public static bool? IsFirstIterationSufficient(this ForEachStatementSyntax syntax, ISemanticModel model, Assumptions assume) {
         Contract.Requires(syntax != null);
         Contract.Requires(model != null);
+        
+        if (!assume.IterationHasNoSideEffects) return null;
         
         // always breaks outs? then only the first iteration CAN happen
         if (syntax.Statement.IsGuaranteedToJumpOut(includeContinue: false)) return true;
         
         // any iteration works? then so does the first one
-        var anyIsGood = syntax.IsAnyIterationSufficient(model);
-        if (anyIsGood.IsProbablyTrue) return anyIsGood;
+        var anyIsGood = syntax.IsAnyIterationSufficient(model, assume);
+        if (anyIsGood == true) return true;
 
-        return TentativeBool.Unknown;
+        return null;
     }
 
-    public static TentativeBool IsLastIterationSufficient(this ForEachStatementSyntax syntax, ISemanticModel model) {
+    public static bool? IsLastIterationSufficient(this ForEachStatementSyntax syntax, ISemanticModel model, Assumptions assume) {
         Contract.Requires(syntax != null);
         Contract.Requires(model != null);
-        
+
+        if (!assume.IterationHasNoSideEffects) return null;
+
         // any iteration works? then so does the last one
-        // if not any iteration works and we aren't using the iterator then the last one shouldn't work
-        var anyIsGood = syntax.IsAnyIterationSufficient(model);
-        var usesIterator = model.AnalyzeRegionDataFlow(syntax.Statement.Span).ReadInside.Contains(model.GetDeclaredSymbol(syntax));
-        if (!usesIterator || anyIsGood.IsProbablyTrue) return anyIsGood.Max(TentativeBool.ProbablyFalse);
+        var anyIsGood = syntax.IsAnyIterationSufficient(model, assume);
+        if (anyIsGood == true) return true;
 
         if (syntax.DescendentNodes(e => e is StatementSyntax).Any(e => e is BreakStatementSyntax || e is ReturnStatementSyntax || e is ThrowStatementSyntax))
-            return TentativeBool.ProbablyFalse; //loop might end before last iteration
+            return null; //loop might end before last iteration
 
-        return syntax.Statement.IsLastIterationSufficient_Helper(model, model.GetDeclaredSymbol(syntax));
+        return syntax.Statement.IsLastIterationSufficient_Helper(model, assume, model.GetDeclaredSymbol(syntax));
     }
-    public static TentativeBool IsLastIterationSufficient_Helper(this StatementSyntax syntax, ISemanticModel model, ISymbol iteratorVariable) {
+    private static bool? IsLastIterationSufficient_Helper(this StatementSyntax syntax, ISemanticModel model, Assumptions assume, ISymbol iteratorVariable) {
         Contract.Requires(syntax != null);
         Contract.Requires(model != null);
         Contract.Requires(iteratorVariable != null);
@@ -235,9 +240,9 @@ public static class Analysis {
         if (syntax is BlockSyntax) {
             var b = (BlockSyntax)syntax;
             if (b.Statements.Count == 0) return true;
-            if (b.Statements.Count == 1) return b.Statements.Single().IsLastIterationSufficient_Helper(model, iteratorVariable);
-            var m = syntax.Statements().Min(e => e.IsLastIterationSufficient_Helper(model, iteratorVariable));
-            if (!m.IsProbablyTrue) return m;
+            if (b.Statements.Count == 1) return b.Statements.Single().IsLastIterationSufficient_Helper(model, assume, iteratorVariable);
+            var m = syntax.Statements().Min(e => e.IsLastIterationSufficient_Helper(model, assume, iteratorVariable));
+            if (m != true) return m;
             var assigned = syntax.DescendentNodes()
                            .Where(e => e.Kind == SyntaxKind.AssignExpression)
                            .Cast<BinaryExpressionSyntax>()
@@ -247,38 +252,37 @@ public static class Analysis {
             var reads = syntax.DescendentNodes()
                         .Except(assigned)
                         .Select(e => model.GetSemanticInfo(e).Symbol);
-            if (!reads.Intersect(assignedSymbols).Any()) return TentativeBool.ProbablyTrue;
-            return TentativeBool.Unknown;
+            if (!reads.Intersect(assignedSymbols).Any()) return true;
         }
         if (syntax is ExpressionStatementSyntax)
-            return ((ExpressionStatementSyntax)syntax).Expression.IsLastIterationSufficient_Helper(model, iteratorVariable);
-        return TentativeBool.Unknown;
+            return ((ExpressionStatementSyntax)syntax).Expression.IsLastIterationSufficient_Helper(model, assume, iteratorVariable);
+        return null;
     }
-    public static TentativeBool IsLastIterationSufficient_Helper(this ExpressionSyntax syntax, ISemanticModel model, ISymbol iteratorVariable) {
+    private static bool? IsLastIterationSufficient_Helper(this ExpressionSyntax syntax, ISemanticModel model, Assumptions assume, ISymbol iteratorVariable) {
         Contract.Requires(syntax != null);
         Contract.Requires(model != null);
         Contract.Requires(iteratorVariable != null);
 
         var isConst = syntax.IsConst(model);
-        if (isConst.IsProbablyTrue) return isConst;
+        if (isConst == true) return true;
         if (syntax is IdentifierNameSyntax && model.GetSemanticInfo(syntax).Symbol == iteratorVariable) return true;
         if (syntax.Kind == SyntaxKind.AssignExpression) {
             var b = (BinaryExpressionSyntax)syntax;
             if (b.Left is IdentifierNameSyntax) {
-                return b.Right.IsLastIterationSufficient_Helper2(model, iteratorVariable);
+                return b.Right.IsLastIterationSufficient_Helper2(model, assume, iteratorVariable);
             }
         }
-        return TentativeBool.Unknown;
+        return null;
     }
-    public static TentativeBool IsLastIterationSufficient_Helper2(this ExpressionSyntax syntax, ISemanticModel model, ISymbol iteratorVariable) {
+    private static bool? IsLastIterationSufficient_Helper2(this ExpressionSyntax syntax, ISemanticModel model, Assumptions assume, ISymbol iteratorVariable) {
         Contract.Requires(syntax != null);
         Contract.Requires(model != null);
         Contract.Requires(iteratorVariable != null);
 
         var isConst = syntax.IsConst(model);
-        if (isConst.IsProbablyTrue) return isConst;
+        if (isConst == true) return true;
         if (syntax is IdentifierNameSyntax && model.GetSemanticInfo(syntax).Symbol == iteratorVariable) return true;
-        return TentativeBool.Unknown;
+        return null;
     }
     public static bool HasTopLevelIntraLoopJumps(this StatementSyntax syntax) {
         Contract.Requires(syntax != null);
