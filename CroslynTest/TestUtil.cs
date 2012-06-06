@@ -10,6 +10,17 @@ using Roslyn.Compilers;
 
 [TestClass()]
 public static class TestUtil {
+    public static void ReplaceExpressionTest<T>(Func<T, ISemanticModel, IEnumerable<ReplaceAction>> trans, string pars, string original, params string[] results) where T : ExpressionSyntax {
+        var code = "using System; bool f(" + pars + ") { return " + original + "; }";
+        var tree = code.ParseFunctionTreeFromString();
+        var m = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var ori = (T)((ReturnStatementSyntax)m.Body.Statements.Single()).Expression;
+        var replacements = trans(ori, tree.GetTestSemanticModel()).ToArray();
+        Assert.IsTrue(replacements.Length == results.Length);
+        Assert.IsTrue(replacements.All(e => e.OldNode == ori));
+        foreach (var pair in replacements.Zip(results, (e1, e2) => Tuple.Create(e1, e2)))
+            pair.Item1.NewNode.AssertSameSyntax(pair.Item2.ParseExpressionFromString());
+    }
     public static void AssertSameSyntax(this SyntaxToken n1, SyntaxToken n2) {
         Assert.IsTrue(n1.Kind == n2.Kind);
     }

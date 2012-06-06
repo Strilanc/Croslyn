@@ -65,10 +65,11 @@
     <Compile Include="Analysis\IsIdempotentTest.cs" />
     <Compile Include="Analysis\IsAnIterationSufficient.cs" />
     <Compile Include="Analysis\HasSideEffectsTest.cs" />
+    <Compile Include="Issues\ReducibleBooleanExpressionTest.cs" />
     <Compile Include="TestUtil.cs" />
     <Compile Include="Analysis\EffectsOverwriteEffectsOfTest.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="ReducibleConditionalExpressionTest.cs" />
+    <Compile Include="Issues\ReducibleConditionalExpressionTest.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Croslyn\Croslyn.csproj">

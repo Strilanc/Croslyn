@@ -26,7 +26,7 @@ public static class Transforms {
     public static ExpressionSyntax Inverted(this ExpressionSyntax e) {
         var cv = e.TryGetConstBoolValue();
         if (cv != null) cv.Value.AsLiteral();
-        
+            
         var b = e as BinaryExpressionSyntax;
         if (b != null) {
             var inverseOperators = new[] {
@@ -45,7 +45,15 @@ public static class Transforms {
         if (u != null && u.Kind == SyntaxKind.LogicalNotExpression) {
             return u.Operand;
         }
-        return Syntax.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression, operand: e.Bracketed());
+
+        var safeToExposeInside = e is LiteralExpressionSyntax
+                              || e is PrefixUnaryExpressionSyntax
+                              || e is IdentifierNameSyntax
+                              || e is ParenthesizedExpressionSyntax
+                              || e is MemberAccessExpressionSyntax
+                              || e is InvocationExpressionSyntax;
+        var inside = safeToExposeInside ? e : e.Bracketed();
+        return Syntax.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression, operand: inside).Bracketed();
     }
 
     public static ICodeAction MakeReplaceStatementWithManyAction(this StatementSyntax oldStatement, IEnumerable<StatementSyntax> newStatements, String desc, IDocument document) {

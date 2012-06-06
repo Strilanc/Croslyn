@@ -14,12 +14,25 @@ using Strilbrary.Values;
 
 namespace Croslyn.CodeIssues {
     [ExportSyntaxNodeCodeIssueProvider("Croslyn", LanguageNames.CSharp, typeof(BinaryExpressionSyntax))]
-    internal class ReducibleBooleanExpression : ICodeIssueProvider {
+    public class ReducibleBooleanExpression : ICodeIssueProvider {
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {
             var model = document.GetSemanticModel();
             var b = (BinaryExpressionSyntax)node;
-            if (!b.Left.DefinitelyHasBooleanType(model)) return null;
-            if (!b.Right.DefinitelyHasBooleanType(model)) return null;
+            var actions = GetSimplifications(b, model, cancellationToken)
+                          .Select(e => e.AsCodeAction(document))
+                          .ToArray();
+            if (actions.Length == 0) yield break;
+
+            yield return new CodeIssue(
+                CodeIssue.Severity.Warning,
+                b.OperatorToken.Span,
+                "Boolean operation can be simplified.",
+                actions);
+        }
+
+        public static IEnumerable<ReplaceAction> GetSimplifications(BinaryExpressionSyntax b, ISemanticModel model, CancellationToken cancellationToken = default(CancellationToken)) {
+            if (!b.Left.DefinitelyHasBooleanType(model)) yield break;
+            if (!b.Right.DefinitelyHasBooleanType(model)) yield break;
 
             // prep basic analysis
             var leftEffects = !b.Left.HasSideEffects(model).IsProbablyFalse;
@@ -29,9 +42,9 @@ namespace Croslyn.CodeIssues {
             var cmp = b.Left.TryEvalAlternativeComparison(b.Right, model);
 
             // prep utility funcs for adding simplifications
-            var actions = new List<ICodeAction>();
+            var actions = new List<ReplaceAction>();
             Action<String, ExpressionSyntax> include = (desc, rep) => 
-                actions.Add(new ReadyCodeAction(desc, document, b, () => rep));
+                actions.Add(new ReplaceAction(desc, b, rep));
             Action<bool> useRight = v => { 
                 if (!leftEffects) 
                     include(v ? "rhs" : "!rhs", b.Right.MaybeInverted(!v)); 
@@ -69,13 +82,8 @@ namespace Croslyn.CodeIssues {
             }
 
             // expose simplifications as code issues/actions
-            if (actions.Count == 0) return null;
-            return new[] { 
-                new CodeIssue(CodeIssue.Severity.Warning, 
-                              b.OperatorToken.Span, 
-                              "Boolean operation can be simplified.", 
-                              actions) 
-            };
+            foreach (var action in actions)
+                yield return action;
         }
 
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxToken token, CancellationToken cancellationToken) {
