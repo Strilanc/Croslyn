@@ -15,19 +15,12 @@ using Strilbrary.Values;
 namespace Croslyn.CodeIssues {
     [ExportSyntaxNodeCodeIssueProvider("Croslyn", LanguageNames.CSharp, typeof(IfStatementSyntax))]
     internal class UselessBranch : ICodeIssueProvider {
-        private readonly ICodeActionEditFactory editFactory;
-
-        [ImportingConstructor]
-        internal UselessBranch(ICodeActionEditFactory editFactory) {
-            this.editFactory = editFactory;
-        }
-
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {
             var statement = (IfStatementSyntax)node;
             var newStatement = statement.DropEmptyBranchesIfApplicable();
             if (newStatement == statement) return null;
             
-            var r = new ReadyCodeAction("Omit useless code", editFactory, document, statement, () => newStatement);
+            var r = new ReadyCodeAction("Omit useless code", document, statement, () => newStatement);
             return r.CodeIssues1(CodeIssue.Severity.Warning, statement.IfKeyword.Span, "Useless branch");
         }
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxToken token, CancellationToken cancellationToken) {

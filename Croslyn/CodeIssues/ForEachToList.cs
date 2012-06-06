@@ -15,13 +15,6 @@ using Strilbrary.Values;
 namespace Croslyn.CodeIssues {
     [ExportSyntaxNodeCodeIssueProvider("Croslyn", LanguageNames.CSharp, typeof(ForEachStatementSyntax))]
     internal class ForEachToList : ICodeIssueProvider {
-        private readonly ICodeActionEditFactory editFactory;
-
-        [ImportingConstructor]
-        internal ForEachToList(ICodeActionEditFactory editFactory) {
-            this.editFactory = editFactory;
-        }
-
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {
             var forLoop = (ForEachStatementSyntax)node;
             var model = document.TryGetSemanticModel();
@@ -34,7 +27,7 @@ namespace Croslyn.CodeIssues {
             var target = lhs.Identifier;
             var rhs = initStatement.TryGetRHSOfAssignmentOrInit() as ObjectCreationExpressionSyntax;
             if (rhs == null) return null;
-            var cr = model.GetSemanticInfo(rhs).Type;
+            var cr = model.GetTypeInfo(rhs).Type;
             if (cr.AllInterfaces.All(e => e.Name != "IList")) return null;
 
             // loop adds things directly into the list?
@@ -58,7 +51,6 @@ namespace Croslyn.CodeIssues {
 
             var action = new ReadyCodeAction(
                 "Select into list",
-                editFactory,
                 document,
                 new[] { initStatement, forLoop },
                 (e, a) => e == initStatement ? replacedInit : a.Dropped());

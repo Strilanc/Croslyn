@@ -50,13 +50,13 @@ public static class SyntaxWithEx {
                              modifiers ?? @this.Modifiers,
                              keyword ?? @this.Keyword,
                              identifier ?? @this.Identifier,
-                             typeParameterListOpt == null ? @this.TypeParameterListOpt : typeParameterListOpt.Value,
-                             baseListOpt ?? @this.BaseListOpt,
+                             typeParameterListOpt == null ? @this.TypeParameterList : typeParameterListOpt.Value,
+                             baseListOpt ?? @this.BaseList,
                              constraintClauses ?? @this.ConstraintClauses,
                              openBraceToken ?? @this.OpenBraceToken,
                              members ?? @this.Members,
                              closeBraceToken ?? @this.CloseBraceToken,
-                             semicolonTokenOpt ?? @this.SemicolonTokenOpt);
+                             semicolonTokenOpt ?? @this.SemicolonToken);
         return r == @this ? @this : r;
     }
     public static ClassDeclarationSyntax With(this ClassDeclarationSyntax @this,
@@ -76,13 +76,13 @@ public static class SyntaxWithEx {
                              modifiers ?? @this.Modifiers,
                              keyword ?? @this.Keyword,
                              identifier ?? @this.Identifier,
-                             typeParameterListOpt == null ? @this.TypeParameterListOpt : typeParameterListOpt.Value,
-                             baseListOpt ?? @this.BaseListOpt,
+                             typeParameterListOpt == null ? @this.TypeParameterList : typeParameterListOpt.Value,
+                             baseListOpt ?? @this.BaseList,
                              constraintClauses ?? @this.ConstraintClauses,
                              openBraceToken ?? @this.OpenBraceToken,
                              members ?? @this.Members,
                              closeBraceToken ?? @this.CloseBraceToken,
-                             semicolonTokenOpt ?? @this.SemicolonTokenOpt);
+                             semicolonTokenOpt ?? @this.SemicolonToken);
         return r == @this ? @this : r;
     }
     public static StructDeclarationSyntax With(this StructDeclarationSyntax @this,
@@ -102,13 +102,13 @@ public static class SyntaxWithEx {
                              modifiers ?? @this.Modifiers,
                              keyword ?? @this.Keyword,
                              identifier ?? @this.Identifier,
-                             typeParameterListOpt == null ? @this.TypeParameterListOpt : typeParameterListOpt.Value,
-                             baseListOpt ?? @this.BaseListOpt,
+                             typeParameterListOpt == null ? @this.TypeParameterList : typeParameterListOpt.Value,
+                             baseListOpt ?? @this.BaseList,
                              constraintClauses ?? @this.ConstraintClauses,
                              openBraceToken ?? @this.OpenBraceToken,
                              members ?? @this.Members,
                              closeBraceToken ?? @this.CloseBraceToken,
-                             semicolonTokenOpt ?? @this.SemicolonTokenOpt);
+                             semicolonTokenOpt ?? @this.SemicolonToken);
         return r == @this ? @this : r;
     }
     public static IfStatementSyntax With(this IfStatementSyntax @this,
@@ -125,14 +125,14 @@ public static class SyntaxWithEx {
         var newCondition = condition ?? @this.Condition;
         var newCloseParenToken = closeParenToken ?? @this.CloseParenToken;
         var newStatement = statement ?? @this.Statement;
-        var newElseOpt = elseOpt == null ? @this.ElseOpt : elseOpt.Value;
+        var newElseOpt = elseOpt == null ? @this.Else : elseOpt.Value;
         
         if (newIfKeyword == @this.IfKeyword
                 && newOpenParenToken == @this.OpenParenToken
                 && newCondition == @this.Condition
                 && newCloseParenToken == @this.CloseParenToken
                 && newStatement == @this.Statement
-                && newElseOpt == @this.ElseOpt)
+                && newElseOpt == @this.Else)
             return @this;
 
         return @this.Update(newIfKeyword,
@@ -193,8 +193,8 @@ public static class SyntaxWithEx {
                                                 Renullable<BracketedArgumentListSyntax> argumentListOpt = null,
                                                 Renullable<EqualsValueClauseSyntax> initializerOpt = null) {
         return syntax.Update(identifier ?? syntax.Identifier, 
-                             argumentListOpt == null ? syntax.ArgumentListOpt : argumentListOpt.Value, 
-                             initializerOpt == null ? syntax.InitializerOpt : initializerOpt.Value);
+                             argumentListOpt == null ? syntax.ArgumentList : argumentListOpt.Value, 
+                             initializerOpt == null ? syntax.Initializer : initializerOpt.Value);
     }
     public static ParameterListSyntax With(this ParameterListSyntax syntax,
                                            SyntaxToken? openParenToken = null,
@@ -243,16 +243,8 @@ public static class SyntaxWithEx {
                                              Renullable<ExpressionSyntax> expressionOpt = null,
                                              SyntaxToken? semicolonToken = null) {
         return syntax.Update(returnKeyword ?? syntax.ReturnKeyword,
-                             expressionOpt == null ? syntax.ExpressionOpt : expressionOpt.Value,
+                             expressionOpt == null ? syntax.Expression : expressionOpt.Value,
                              semicolonToken ?? syntax.SemicolonToken);
-    }
-    public static QueryExpressionSyntax With(this QueryExpressionSyntax syntax,
-                                             SyntaxList<QueryClauseSyntax>? clauses = null,
-                                             SelectOrGroupClauseSyntax selectOrGroup = null,
-                                             Renullable<QueryContinuationSyntax> continuationOpt = null) {
-        return syntax.Update(clauses ?? syntax.Clauses,
-                             selectOrGroup ?? syntax.SelectOrGroup,
-                             continuationOpt == null ? syntax.ContinuationOpt : continuationOpt.Value);
     }
     public static SeparatedSyntaxList<T> With<T>(this SeparatedSyntaxList<T> syntax,
                                                  IEnumerable<T> nodes = null,

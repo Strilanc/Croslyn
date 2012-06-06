@@ -56,19 +56,19 @@ public static class TestUtil {
         }
     }
     public static ExpressionSyntax ParseExpressionFromString(this String s) {
-        var p = SyntaxTree.ParseCompilationUnit(s, options: new ParseOptions(kind: SourceCodeKind.Interactive));
-        var compUnit = (CompilationUnitSyntax)p.Root;
+        var p = SyntaxTree.ParseCompilationUnit(s, options: ParseOptions.Default.WithKind(SourceCodeKind.Interactive));
+        var compUnit = (CompilationUnitSyntax)p.GetRoot();
         var globalStatement = (GlobalStatementSyntax)compUnit.ChildNodes().Single();
         var expStatement = (ExpressionStatementSyntax)globalStatement.ChildNodes().Single();
         return expStatement.Expression;
     }
     public static SyntaxTree ParseFunctionTreeFromString(this String s) {
-        return SyntaxTree.ParseCompilationUnit(s, options: new ParseOptions(kind: SourceCodeKind.Interactive));
+        return SyntaxTree.ParseCompilationUnit(s, options: ParseOptions.Default.WithKind(SourceCodeKind.Interactive));
     }
     public static StatementSyntax[] TestGetParsedFunctionStatements(this SyntaxTree tree) {
-        var compUnit = (CompilationUnitSyntax)tree.Root;
+        var compUnit = (CompilationUnitSyntax)tree.GetRoot();
         var method = (MethodDeclarationSyntax)compUnit.ChildNodes().Single();
-        return method.BodyOpt.Statements.ToArray();
+        return method.Body.Statements.ToArray();
     }
     public static ISemanticModel GetTestSemanticModel(this SyntaxTree tree) {
         return Compilation.Create("temp")

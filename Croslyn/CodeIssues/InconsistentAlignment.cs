@@ -21,13 +21,6 @@ namespace Croslyn.CodeIssues {
         typeof(InitializerExpressionSyntax), 
         typeof(QueryExpressionSyntax))]
     internal class InconsistentAlignment : ICodeIssueProvider {
-        private readonly ICodeActionEditFactory editFactory;
-
-        [ImportingConstructor]
-        internal InconsistentAlignment(ICodeActionEditFactory editFactory) {
-            this.editFactory = editFactory;
-        }
-
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {
             var tree = document.TryGetSyntaxTree();
             if (tree == null) return null;
@@ -39,7 +32,7 @@ namespace Croslyn.CodeIssues {
             var ini = node as InitializerExpressionSyntax;
             if (ini != null) return GetAlignmentIssue(document, tree, ini.Expressions, n, L => ini.With(expressions: ini.Expressions.With(L)));
             var lin = node as QueryExpressionSyntax;
-            if (lin != null) return GetAlignmentIssue(document, tree, lin.Clauses, n, L => lin.With(clauses: lin.Clauses.With(L)));
+            if (lin != null) return GetAlignmentIssue(document, tree, lin.Body.Clauses, n, L => lin.WithBody(lin.Body.WithClauses(L.List())));
             return null;
         }
         private IEnumerable<CodeIssue> GetAlignmentIssue<T>(IDocument document,
@@ -55,7 +48,7 @@ namespace Croslyn.CodeIssues {
 
             var alignedCol = cols.First();
             var corrected = containerWith(list.Select(e => e.WithExactIndentation(tree, alignedCol)));
-            var r = new ReadyCodeAction("Correct alignment", editFactory, document, container, () => corrected, addFormatAnnotation: false);
+            var r = new ReadyCodeAction("Correct alignment", document, container, () => corrected, addFormatAnnotation: false);
             return r.CodeIssues1(CodeIssue.Severity.Info, list.First().Span, "Inconsistent alignment");
         }
 

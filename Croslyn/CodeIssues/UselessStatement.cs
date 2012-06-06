@@ -15,13 +15,6 @@ using Strilbrary.Values;
 namespace Croslyn.CodeIssues {
     [ExportSyntaxNodeCodeIssueProvider("Croslyn", LanguageNames.CSharp, typeof(StatementSyntax))]
     internal class UselessStatement : ICodeIssueProvider {
-        private readonly ICodeActionEditFactory editFactory;
-
-        [ImportingConstructor]
-        internal UselessStatement(ICodeActionEditFactory editFactory) {
-            this.editFactory = editFactory;
-        }
-
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {
             var c = (StatementSyntax)node;
             if (!(c.Parent is BlockSyntax)) {
@@ -32,7 +25,6 @@ namespace Croslyn.CodeIssues {
             if (!c.HasSideEffects(document.TryGetSemanticModel()).IsProbablyFalse) return null;
             return new[] { new CodeIssue(CodeIssue.Severity.Warning, c.Span, "Statement without any effect", new[] { new ReadyCodeAction(
                 "Remove Unnecessary Statement",
-                editFactory,
                 document,
                 c,
                 () => c.Parent is BlockSyntax ? null : Syntax.EmptyStatement())})};

@@ -15,13 +15,6 @@ using Strilbrary.Values;
 namespace Croslyn.CodeIssues {
     [ExportSyntaxNodeCodeIssueProvider("Croslyn", LanguageNames.CSharp, typeof(BinaryExpressionSyntax))]
     internal class ReducibleBooleanExpression : ICodeIssueProvider {
-        private readonly ICodeActionEditFactory editFactory;
-
-        [ImportingConstructor]
-        internal ReducibleBooleanExpression(ICodeActionEditFactory editFactory) {
-            this.editFactory = editFactory;
-        }
-
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {
             var model = document.GetSemanticModel();
             var b = (BinaryExpressionSyntax)node;
@@ -38,7 +31,7 @@ namespace Croslyn.CodeIssues {
             // prep utility funcs for adding simplifications
             var actions = new List<ICodeAction>();
             Action<String, ExpressionSyntax> include = (desc, rep) => 
-                actions.Add(new ReadyCodeAction(desc, editFactory, document, b, () => rep));
+                actions.Add(new ReadyCodeAction(desc, document, b, () => rep));
             Action<bool> useRight = v => { 
                 if (!leftEffects) 
                     include(v ? "rhs" : "!rhs", b.Right.MaybeInverted(!v)); 

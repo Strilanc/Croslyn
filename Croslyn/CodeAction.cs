@@ -8,7 +8,6 @@ using System;
 using System.Collections.Generic;
 
 internal class ReadyCodeAction : ICodeAction {
-    private readonly ICodeActionEditFactory editFactory;
     private readonly IDocument document;
     private readonly IEnumerable<SyntaxNode> oldNodes;
     private readonly Func<SyntaxNode, SyntaxNode, SyntaxNode> newNodeFunc;
@@ -17,8 +16,7 @@ internal class ReadyCodeAction : ICodeAction {
     public string Description { get; private set; }
     public ImageSource Icon { get; private set; }
 
-    public ReadyCodeAction(string desc, ICodeActionEditFactory editFactory, IDocument document, SyntaxNode oldNode, Func<SyntaxNode> newNodeFunc, bool addFormatAnnotation = true, ImageSource icon = null) {
-        this.editFactory = editFactory;
+    public ReadyCodeAction(string desc, IDocument document, SyntaxNode oldNode, Func<SyntaxNode> newNodeFunc, bool addFormatAnnotation = true, ImageSource icon = null) {
         this.document = document;
         this.oldNodes = new[] {oldNode};
         this.newNodeFunc = (e, a) => newNodeFunc();
@@ -26,8 +24,7 @@ internal class ReadyCodeAction : ICodeAction {
         this.Icon = icon;
         this.addFormatAnnotation = addFormatAnnotation;
     }
-    public ReadyCodeAction(string desc, ICodeActionEditFactory editFactory, IDocument document, IEnumerable<SyntaxNode> oldNodes, Func<SyntaxNode, SyntaxNode, SyntaxNode> newNodeFunc, bool addFormatAnnotation = true, ImageSource icon = null) {
-        this.editFactory = editFactory;
+    public ReadyCodeAction(string desc, IDocument document, IEnumerable<SyntaxNode> oldNodes, Func<SyntaxNode, SyntaxNode, SyntaxNode> newNodeFunc, bool addFormatAnnotation = true, ImageSource icon = null) {
         this.document = document;
         this.oldNodes = oldNodes;
         this.newNodeFunc = newNodeFunc;
@@ -36,11 +33,15 @@ internal class ReadyCodeAction : ICodeAction {
         this.addFormatAnnotation = addFormatAnnotation;
     }
 
-    public ICodeActionEdit GetEdit(CancellationToken cancellationToken) {
+    public CodeActionEdit GetEdit(CancellationToken cancellationToken) {
         var tree = (SyntaxTree)document.GetSyntaxTree();
-        var newRoot = tree.Root.ReplaceNodes(
+        var newRoot = tree.GetRoot().ReplaceNodes(
             oldNodes,
-            (e, a) => addFormatAnnotation ? CodeActionAnnotations.FormattingAnnotation.AddAnnotationTo(newNodeFunc(e, a)) : newNodeFunc(e, a));
-        return editFactory.CreateTreeTransformEdit(document.Project.Solution, tree, newRoot);
+            (e, a) => {
+                var n = newNodeFunc(e, a);
+                //if (addFormatAnnotation) n = n.Format(new Roslyn.Services.Formatting.FormattingOptions());
+                return n;
+            });
+        return new CodeActionEdit(document.UpdateSyntaxRoot(newRoot));
     }
 }

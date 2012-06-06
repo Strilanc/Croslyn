@@ -16,13 +16,6 @@ using LinqToCollections.Set;
 namespace Croslyn.CodeIssues {
     [ExportSyntaxNodeCodeIssueProvider("Croslyn", LanguageNames.CSharp, typeof(FieldDeclarationSyntax))]
     internal class UnnecessaryMutability : ICodeIssueProvider {
-        private readonly ICodeActionEditFactory editFactory;
-
-        [ImportingConstructor]
-        internal UnnecessaryMutability(ICodeActionEditFactory editFactory) {
-            this.editFactory = editFactory;
-        }
-
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {
             var model = document.TryGetSemanticModel();
             if (model == null) return null;
@@ -40,17 +33,17 @@ namespace Croslyn.CodeIssues {
 
             var scopes = fieldNode.IsPrivate()
                        ? new[] {Tuple.Create((CommonSyntaxNode)classDecl, model)}
-                       : document.Project.Documents.Select(e => Tuple.Create(e.GetSyntaxTree().Root, e.GetSemanticModel()));
+                       : document.Project.Documents.Select(e => Tuple.Create(e.GetSyntaxTree().GetRoot(), e.GetSemanticModel()));
             
             var unmutatedVars = fieldNode.Declaration.Variables.Where(v => {
                 var field = model.GetDeclaredSymbol(v);
-                if (scopes.Any(c => c.Item1.DescendentNodes(e => !constructors.Contains(e)).OfType<ExpressionSyntax>().Any(e => SurfaceWritesTo(e, c.Item2, field)))) return false;
+                if (scopes.Any(c => c.Item1.DescendantNodes(e => !constructors.Contains(e)).OfType<ExpressionSyntax>().Any(e => SurfaceWritesTo(e, c.Item2, field)))) return false;
                 return true;
             }).ToArray();
 
             if (unmutatedVars.Length == 0) return null;
             if (unmutatedVars.Length == fieldNode.Declaration.Variables.Count) {
-                var r = new ReadyCodeAction("Make readonly", editFactory, document, fieldNode, () => fieldNode.With(modifiers: modsWithReadOnly));
+                var r = new ReadyCodeAction("Make readonly", document, fieldNode, () => fieldNode.With(modifiers: modsWithReadOnly));
                 var desc = unmutatedVars.Length == 1 ? "Mutable field is never modified." : "Mutable fields are never modified.";
                 return r.CodeIssues1(CodeIssue.Severity.Warning, fieldNode.Declaration.Type.Span, desc);
             }
@@ -64,7 +57,7 @@ namespace Croslyn.CodeIssues {
                            .WithTrailingTrivia(Syntax.Whitespace(Environment.NewLine))
                            .With(declaration: fieldNode.Declaration.With(variables: fieldNode.Declaration.Variables.Without(v)));
                 var newClassDecl = classDecl.With(members: classDecl.Members.WithItemReplacedByMany(fieldNode, new[] { singleReadOnly, rest }));
-                var action = new ReadyCodeAction("Split readonly", editFactory, document, classDecl, () => newClassDecl);
+                var action = new ReadyCodeAction("Split readonly", document, classDecl, () => newClassDecl);
                 return new CodeIssue(CodeIssue.Severity.Warning, v.Identifier.Span, "Mutable field is never modified.", new[] { action });
             }).ToArray();
         }
@@ -72,13 +65,13 @@ namespace Croslyn.CodeIssues {
             var r = expression as InvocationExpressionSyntax;
             if (r != null) {
                 return r.ArgumentList.Arguments
-                    .Where(e => e.RefOrOutKeywordOpt != null)
-                    .Select(e => model.GetSemanticInfo(e))
+                    .Where(e => e.RefOrOutKeyword != null)
+                    .Select(e => model.GetSymbolInfo(e))
                     .Where(e => e.Symbol == target || e.CandidateSymbols.Contains(target))
                     .Any();
             }
             if (Analysis.AssignmentOperatorKinds.Contains(expression.Kind)) {
-                var i = model.GetSemanticInfo(((BinaryExpressionSyntax)expression).Left);
+                var i = model.GetSymbolInfo(((BinaryExpressionSyntax)expression).Left);
                 return i.Symbol == target || i.CandidateSymbols.Contains(target);
             }
             return false;

@@ -15,18 +15,11 @@ using Strilbrary.Values;
 namespace Croslyn.CodeIssues {
     [ExportSyntaxNodeCodeIssueProvider("Croslyn", LanguageNames.CSharp, typeof(ConditionalExpressionSyntax))]
     public class ReducibleConditionalExpression : ICodeIssueProvider {
-        private readonly ICodeActionEditFactory editFactory;
-
-        [ImportingConstructor]
-        internal ReducibleConditionalExpression(ICodeActionEditFactory editFactory) {
-            this.editFactory = editFactory;
-        }
-
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {
             var model = document.GetSemanticModel();
             var ternaryNode = (ConditionalExpressionSyntax)node;
             var actions = GetSimplifications(ternaryNode, model, cancellationToken)
-                          .Select(e => e.AsCodeAction(editFactory, document))
+                          .Select(e => e.AsCodeAction(document))
                           .ToArray();
             if (actions.Length == 0) yield break;
                

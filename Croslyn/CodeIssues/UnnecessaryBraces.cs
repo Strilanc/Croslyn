@@ -15,21 +15,14 @@ using Strilbrary.Values;
 namespace Croslyn.CodeIssues {
     [ExportSyntaxNodeCodeIssueProvider("Croslyn", LanguageNames.CSharp, typeof(IfStatementSyntax))]
     internal class UnnecessaryBraces : ICodeIssueProvider {
-        private readonly ICodeActionEditFactory editFactory;
-
-        [ImportingConstructor]
-        internal UnnecessaryBraces(ICodeActionEditFactory editFactory) {
-            this.editFactory = editFactory;
-        }
-
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {
             var ifStatement = node as IfStatementSyntax;
-            if (ifStatement == null || ifStatement.ElseOpt != null) return null;
+            if (ifStatement == null || ifStatement.Else != null) return null;
             var trueBlock = ifStatement.Statement as BlockSyntax;
             if (trueBlock == null) return null;
             if (trueBlock.Statements.Count != 1) return null;
             if (!trueBlock.IsGuaranteedToJumpOut()) return null;
-            var r = new ReadyCodeAction("Remove unnecessary braces", editFactory, document, trueBlock, () => trueBlock.Statements.Single());
+            var r = new ReadyCodeAction("Remove unnecessary braces", document, trueBlock, () => trueBlock.Statements.Single());
 
             return new[] { 
                 new CodeIssue(CodeIssue.Severity.Warning, trueBlock.OpenBraceToken.Span, "Unnecessary braces", new[] { r })

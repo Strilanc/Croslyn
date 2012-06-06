@@ -15,22 +15,15 @@ using Strilbrary.Values;
 namespace Croslyn.CodeIssues {
     [ExportSyntaxNodeCodeIssueProvider("Croslyn", LanguageNames.CSharp, typeof(ForEachStatementSyntax))]
     internal class ForEachProject : ICodeIssueProvider {
-        private readonly ICodeActionEditFactory editFactory;
-
-        [ImportingConstructor]
-        internal ForEachProject(ICodeActionEditFactory editFactory) {
-            this.editFactory = editFactory;
-        }
-
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {
             var forLoop = (ForEachStatementSyntax)node;
             var model = document.GetSemanticModel();
 
             // loop uses iterator once?
             var declaredSymbol = model.GetDeclaredSymbol(forLoop);
-            var singleRead = forLoop.Statement.DescendentNodes()
+            var singleRead = forLoop.Statement.DescendantNodes()
                              .OfType<SimpleNameSyntax>()
-                             .Where(e => model.GetSemanticInfo(e).Symbol == declaredSymbol)
+                             .Where(e => model.GetSymbolInfo(e).Symbol == declaredSymbol)
                              .SingleOrDefaultAllowMany();
             if (singleRead == null) return null;
             
@@ -53,7 +46,6 @@ namespace Croslyn.CodeIssues {
             // expose as code action/issue
             var action = new ReadyCodeAction(
                 "Project collection",
-                editFactory,
                 document,
                 forLoop,
                 () => replacedLoop);

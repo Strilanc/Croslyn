@@ -16,7 +16,7 @@ public class ReducibleConditionalExpressionTest {
             bool f(bool b1, bool b2) { 
                 return b1 ? b2 : !b2;
             }".ParseFunctionTreeFromString();
-        var conditional = tree.Root.DescendentNodes().OfType<ConditionalExpressionSyntax>().Single();
+        var conditional = tree.GetRoot().DescendantNodes().OfType<ConditionalExpressionSyntax>().Single();
         var replacement = ReducibleConditionalExpression.GetSimplifications(conditional, tree.GetTestSemanticModel()).Single();
         Assert.IsTrue(replacement.OldNode == conditional);
         replacement.NewNode.AssertSameSyntax("b1 == b2".ParseExpressionFromString());
@@ -27,7 +27,7 @@ public class ReducibleConditionalExpressionTest {
             bool f(bool b1, bool b2) { 
                 return b1 ? b2 : b2;
             }".ParseFunctionTreeFromString();
-        var conditional = tree.Root.DescendentNodes().OfType<ConditionalExpressionSyntax>().Single();
+        var conditional = tree.GetRoot().DescendantNodes().OfType<ConditionalExpressionSyntax>().Single();
         var replacement = ReducibleConditionalExpression.GetSimplifications(conditional, tree.GetTestSemanticModel()).Single();
         Assert.IsTrue(replacement.OldNode == conditional);
         replacement.NewNode.AssertSameSyntax("b2".ParseExpressionFromString());
@@ -38,7 +38,7 @@ public class ReducibleConditionalExpressionTest {
             bool f(Func<bool> b1, bool b2) { 
                 return b1() ? b2 : b2;
             }".ParseFunctionTreeFromString();
-        var conditional = tree.Root.DescendentNodes().OfType<ConditionalExpressionSyntax>().Single();
+        var conditional = tree.GetRoot().DescendantNodes().OfType<ConditionalExpressionSyntax>().Single();
         var replacements = ReducibleConditionalExpression.GetSimplifications(conditional, tree.GetTestSemanticModel()).ToArray();
         Assert.IsTrue(replacements.Length == 2);
         Assert.IsTrue(replacements[0].OldNode == conditional);

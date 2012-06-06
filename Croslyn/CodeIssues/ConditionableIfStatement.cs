@@ -15,13 +15,6 @@ using Strilbrary.Values;
 namespace Croslyn.CodeIssues {
     [ExportSyntaxNodeCodeIssueProvider("Croslyn", LanguageNames.CSharp, typeof(IfStatementSyntax))]
     internal class ConditionableIfStatement : ICodeIssueProvider {
-        private readonly ICodeActionEditFactory editFactory;
-
-        [ImportingConstructor]
-        internal ConditionableIfStatement(ICodeActionEditFactory editFactory) {
-            this.editFactory = editFactory;
-        }
-
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {
             var model = document.GetSemanticModel();
 
@@ -34,7 +27,7 @@ namespace Croslyn.CodeIssues {
             if (!branches.True.HasMatchingLHSOrRet(branches.False, model)) return null;
             var lhs = branches.True.TryGetLHSOfAssignmentOrInit(model);
             if (lhs != null) {
-                var dataFlow = model.AnalyzeRegionDataFlow(ifNode.Condition.Span);
+                var dataFlow = model.AnalyzeExpressionDataFlow(ifNode.Condition);
                 if (dataFlow.ReadInside.Contains(lhs)) return null;
                 if (dataFlow.WrittenInside.Contains(lhs)) return null;
             }
@@ -48,7 +41,6 @@ namespace Croslyn.CodeIssues {
             // return as code issue / action
             var action = new ReadyCodeAction(
                 "Fold into expression", 
-                editFactory, 
                 document, 
                 new[] { ifNode, branches.True, branches.False, branches.ReplacePoint }, 
                 (e, a) => e == branches.ReplacePoint ? replacement : a.Dropped());

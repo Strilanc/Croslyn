@@ -66,7 +66,7 @@ public static class Analysis {
     }
 
     public static IEnumerable<IdentifierNameSyntax> ReadsOfLocalVariable(this SyntaxNode scope, SyntaxToken localVar) {
-        return scope.DescendentNodes()
+        return scope.DescendantNodes()
                .OfType<IdentifierNameSyntax>()
                .Where(e => e.Identifier.ValueText == localVar.ValueText);
     }
@@ -98,7 +98,7 @@ public static class Analysis {
 
     public static String TryGetCodeBlockOrAreaDescription(this SyntaxNode e) {
         if (e is ClassDeclarationSyntax) return "Class";
-        if (e is MethodDeclarationSyntax) return ((MethodDeclarationSyntax)e).BodyOpt == null ? null : "Method";
+        if (e is MethodDeclarationSyntax) return ((MethodDeclarationSyntax)e).Body == null ? null : "Method";
         if (e is StructDeclarationSyntax) return "Struct";
         if (e is BlockSyntax) return "Block";
         if (e is IfStatementSyntax) return "If Block";
@@ -115,13 +115,13 @@ public static class Analysis {
         if (node is BreakStatementSyntax) return true;
         if (node is ContinueStatementSyntax) return includeContinue;
         var i = node as IfStatementSyntax;
-        if (i != null) return i.ElseOpt != null && i.Statement.IsGuaranteedToJumpOut(includeContinue) && i.ElseOpt.Statement.IsGuaranteedToJumpOut(includeContinue);
+        if (i != null) return i.Else != null && i.Statement.IsGuaranteedToJumpOut(includeContinue) && i.Else.Statement.IsGuaranteedToJumpOut(includeContinue);
         var b = node as BlockSyntax;
         if (b != null) return b.Statements.Count > 0 && b.Statements.Last().IsGuaranteedToJumpOut(includeContinue);
         return false;
     }
     public static bool DefinitelyHasBooleanType(this ExpressionSyntax expression, ISemanticModel model) {
-        var type = model.GetSemanticInfo(expression).Type;
+        var type = model.GetTypeInfo(expression).Type;
         if (type == null) return false;
         return type.SpecialType == SpecialType.System_Boolean;
     }
@@ -132,7 +132,7 @@ public static class Analysis {
         if (!assume.IterationHasNoSideEffects) return null;
         
         // shouldn't depend on iterator value
-        if (model.AnalyzeRegionDataFlow(syntax.Statement.Span).ReadInside.Contains(model.GetDeclaredSymbol(syntax)))
+        if (model.AnalyzeStatementDataFlow(syntax.Statement).ReadInside.Contains(model.GetDeclaredSymbol(syntax)))
             return null; // probably false, but uses might happen to cancel
         // always jumping out of the loop on the first iteration, and independence from iterator value, should mean equivalence
         // unless the collection iterator has side-effects... but that's bad form, so probably true
@@ -160,15 +160,15 @@ public static class Analysis {
             if (b.Statements.Count == 1) return b.Statements.Single().IsIdempotent(model);
             var m = syntax.Statements().Min(e => e.IsIdempotent(model));
             if (!m.IsProbablyTrue) return m;
-            var assigned = syntax.DescendentNodes()
+            var assigned = syntax.DescendantNodes()
                            .Where(e => e.Kind == SyntaxKind.AssignExpression)
                            .Cast<BinaryExpressionSyntax>()
                            .Select(e => e.Left)
                            .ToArray();
-            var assignedSymbols = assigned.Select(e => model.GetSemanticInfo(e).Symbol);
-            var reads = syntax.DescendentNodes()
+            var assignedSymbols = assigned.Select(e => model.GetSymbolInfo(e));
+            var reads = syntax.DescendantNodes()
                         .Except(assigned)
-                        .Select(e => model.GetSemanticInfo(e).Symbol);
+                        .Select(e => model.GetSymbolInfo(e));
             if (!reads.Intersect(assignedSymbols).Any()) return TentativeBool.ProbablyTrue;
             return TentativeBool.Unknown;
         }
@@ -226,7 +226,7 @@ public static class Analysis {
         var anyIsGood = syntax.IsAnyIterationSufficient(model, assume);
         if (anyIsGood == true) return true;
 
-        if (syntax.DescendentNodes(e => e is StatementSyntax).Any(e => e is BreakStatementSyntax || e is ReturnStatementSyntax || e is ThrowStatementSyntax))
+        if (syntax.DescendantNodes(e => e is StatementSyntax).Any(e => e is BreakStatementSyntax || e is ReturnStatementSyntax || e is ThrowStatementSyntax))
             return null; //loop might end before last iteration
 
         return syntax.Statement.IsLastIterationSufficient_Helper(model, assume, model.GetDeclaredSymbol(syntax));
@@ -243,15 +243,15 @@ public static class Analysis {
             if (b.Statements.Count == 1) return b.Statements.Single().IsLastIterationSufficient_Helper(model, assume, iteratorVariable);
             var m = syntax.Statements().Min(e => e.IsLastIterationSufficient_Helper(model, assume, iteratorVariable));
             if (m != true) return m;
-            var assigned = syntax.DescendentNodes()
+            var assigned = syntax.DescendantNodes()
                            .Where(e => e.Kind == SyntaxKind.AssignExpression)
                            .Cast<BinaryExpressionSyntax>()
                            .Select(e => e.Left)
                            .ToArray();
-            var assignedSymbols = assigned.Select(e => model.GetSemanticInfo(e).Symbol);
-            var reads = syntax.DescendentNodes()
+            var assignedSymbols = assigned.Select(e => model.GetSymbolInfo(e));
+            var reads = syntax.DescendantNodes()
                         .Except(assigned)
-                        .Select(e => model.GetSemanticInfo(e).Symbol);
+                        .Select(e => model.GetSymbolInfo(e));
             if (!reads.Intersect(assignedSymbols).Any()) return true;
         }
         if (syntax is ExpressionStatementSyntax)
@@ -265,7 +265,7 @@ public static class Analysis {
 
         var isConst = syntax.IsConst(model);
         if (isConst == true) return true;
-        if (syntax is IdentifierNameSyntax && model.GetSemanticInfo(syntax).Symbol == iteratorVariable) return true;
+        if (syntax is IdentifierNameSyntax && model.GetSymbolInfo(syntax).Symbol == iteratorVariable) return true;
         if (syntax.Kind == SyntaxKind.AssignExpression) {
             var b = (BinaryExpressionSyntax)syntax;
             if (b.Left is IdentifierNameSyntax) {
@@ -281,12 +281,12 @@ public static class Analysis {
 
         var isConst = syntax.IsConst(model);
         if (isConst == true) return true;
-        if (syntax is IdentifierNameSyntax && model.GetSemanticInfo(syntax).Symbol == iteratorVariable) return true;
+        if (syntax is IdentifierNameSyntax && model.GetSymbolInfo(syntax).Symbol == iteratorVariable) return true;
         return null;
     }
     public static bool HasTopLevelIntraLoopJumps(this StatementSyntax syntax) {
         Contract.Requires(syntax != null);
-        return syntax.DescendentNodesAndSelf(e => !e.IsLoopStatement()).Any(e => e.IsIntraLoopJump());
+        return syntax.DescendantNodesAndSelf(e => !e.IsLoopStatement()).Any(e => e.IsIntraLoopJump());
     }
     public static bool IsIntraLoopJump(this SyntaxNode syntax) {
         Contract.Requires(syntax != null);
@@ -347,7 +347,7 @@ public static class Analysis {
         }
         if (expression is InvocationExpressionSyntax) {
             var i = (InvocationExpressionSyntax)expression;
-            if (i.ArgumentList.Arguments.Any(e => e.RefOrOutKeywordOpt != null)) return true;
+            if (i.ArgumentList.Arguments.Any(e => e.RefOrOutKeyword != null)) return true;
             return Enumerable.Max(i.ArgumentList.Arguments.Select(e => e.Expression.HasSideEffects(model)).Append(i.Expression.HasSideEffects(model), TentativeBool.Unknown));
         }
         if (expression is PostfixUnaryExpressionSyntax) {
@@ -452,7 +452,7 @@ public static class Analysis {
         };
 
         if (modelOpt != null && assumeImplicitConversion) {
-            var typeInfo = modelOpt.GetSemanticInfo(syntax).ConvertedType;
+            var typeInfo = modelOpt.GetTypeInfo(syntax).ConvertedType;
             if (typeInfo.SpecialType == SpecialType.System_Boolean)
                 return Syntax.LiteralExpression(SyntaxKind.FalseLiteralExpression, Syntax.Token(SyntaxKind.FalseKeyword));
             if (typeInfo.IsReferenceType || typeInfo.SpecialType == SpecialType.System_Nullable_T) 
@@ -462,7 +462,7 @@ public static class Analysis {
         }
 
         // 'default(T)'
-        return Syntax.DefaultExpression(argumentList: Syntax.ArgumentList(arguments: Syntax.SeparatedList(Syntax.Argument(expression: syntax))));
+        return Syntax.DefaultExpression(type: syntax);
     }
     public static bool IsSettable(this PropertyDeclarationSyntax syntax) {
         return syntax.AccessorList.Accessors.Any(e => e.Kind == SyntaxKind.SetAccessorDeclaration);
@@ -474,7 +474,7 @@ public static class Analysis {
         return syntax.Modifiers.Concat(setter.Modifiers).Any(e => e.Kind == SyntaxKind.PrivateKeyword);
     }
     public static bool IsAutoProperty(this PropertyDeclarationSyntax syntax) {
-        return syntax.AccessorList.Accessors.All(e => e.BodyOpt == null);
+        return syntax.AccessorList.Accessors.All(e => e.Body == null);
     }
     public static bool IsReadOnly(this FieldDeclarationSyntax syntax) {
         return syntax.Modifiers.Any(e => e.Kind == SyntaxKind.ReadOnlyKeyword);
@@ -521,14 +521,14 @@ public static class Analysis {
         var b = syntax as LocalDeclarationStatementSyntax;
         if (b == null) return false;
         return b.Declaration.Variables.Count == 1
-            && b.Declaration.Variables.Single().InitializerOpt != null;
+            && b.Declaration.Variables.Single().Initializer != null;
     }
     public static bool IsAssignmentOrSingleInitialization(this StatementSyntax syntax) {
         return syntax is LocalDeclarationStatementSyntax || syntax.IsAssignment();
     }
     public static bool IsReturnValue(this StatementSyntax syntax) {
         var r = syntax as ReturnStatementSyntax;
-        return r != null && r.ExpressionOpt != null;
+        return r != null && r.Expression != null;
     }
     public static bool IsAssignmentOrSingleInitializationOrReturn(this StatementSyntax syntax) {
         return syntax.IsAssignmentOrSingleInitialization() || syntax.IsReturnValue();
@@ -537,18 +537,18 @@ public static class Analysis {
         if (syntax.IsAssignment()) 
             return ((BinaryExpressionSyntax)((ExpressionStatementSyntax)syntax).Expression).Right;
         if (syntax.IsSingleInitialization()) 
-            return ((LocalDeclarationStatementSyntax)syntax).Declaration.Variables.Single().InitializerOpt.Value;
+            return ((LocalDeclarationStatementSyntax)syntax).Declaration.Variables.Single().Initializer.Value;
         return null;
     }
     public static ExpressionSyntax TryGetRHSOfAssignmentOrInitOrReturn(this StatementSyntax syntax) {
-        if (syntax.IsReturnValue()) return ((ReturnStatementSyntax)syntax).ExpressionOpt;
+        if (syntax.IsReturnValue()) return ((ReturnStatementSyntax)syntax).Expression;
         return syntax.TryGetRHSOfAssignmentOrInit();
     }
     public static ISymbol TryGetLHSOfAssignmentOrInit(this StatementSyntax syntax, ISemanticModel model) {
         if (syntax.IsAssignment())
-            return model.GetSemanticInfo(((BinaryExpressionSyntax)((ExpressionStatementSyntax)syntax).Expression).Left).Symbol;
+            return model.GetSymbolInfo(((BinaryExpressionSyntax)((ExpressionStatementSyntax)syntax).Expression).Left).Symbol;
         if (syntax.IsSingleInitialization())
-            return model.GetSemanticInfo(((LocalDeclarationStatementSyntax)syntax).Declaration.Variables.Single()).Symbol;
+            return model.GetSymbolInfo(((LocalDeclarationStatementSyntax)syntax).Declaration.Variables.Single()).Symbol;
         return null;
     }
     public static bool HasMatchingLHSOrRet(this StatementSyntax expression, StatementSyntax other, ISemanticModel model) {
@@ -578,8 +578,8 @@ public static class Analysis {
 
         if (lhs1 is SimpleNameSyntax) return ((SimpleNameSyntax)lhs1).PlainName == ((SimpleNameSyntax)lhs2).PlainName;
 
-        var s1 = model.GetSemanticInfo(lhs1);
-        var s2 = model.GetSemanticInfo(lhs2);
+        var s1 = model.GetSymbolInfo(lhs1);
+        var s2 = model.GetSymbolInfo(lhs2);
         if (s1.Symbol != s2.Symbol) return false;
 
         var inv1 = lhs1 as InvocationExpressionSyntax;
@@ -589,8 +589,8 @@ public static class Analysis {
                 && inv1.ArgumentList.Arguments.Count == inv2.ArgumentList.Arguments.Count 
                 && inv1.ArgumentList.Arguments.Zip(
                         inv2.ArgumentList.Arguments, 
-                        (e1, e2) => e1.NameColonOpt == null 
-                                && e2.NameColonOpt == null 
+                        (e1, e2) => e1.NameColon == null 
+                                && e2.NameColon == null 
                                 && e1.Expression.IsMatchingLHS(e2.Expression, model)
                     ).All(e => e);
         }
@@ -602,7 +602,7 @@ public static class Analysis {
     }
     public static StatementSyntax ElseStatementOrEmptyBlock(this IfStatementSyntax syntax) {
         Contract.Requires(syntax != null);
-        return syntax.ElseOpt != null ? syntax.ElseOpt.Statement : Syntax.Block();
+        return syntax.Else != null ? syntax.Else.Statement : Syntax.Block();
     }
     public static IEnumerable<StatementSyntax> ElseAndFollowingStatements(this IfStatementSyntax syntax) {
         Contract.Requires(syntax != null);
@@ -647,7 +647,7 @@ public static class Analysis {
         if (trueAction == null) return null;
         if (!trueAction.IsGuaranteedToJumpOut()) return null;
 
-        if (syntax.ElseOpt != null) return null;
+        if (syntax.Else != null) return null;
         var followingAction = syntax.ElseAndFollowingStatements().FirstOrDefault();
         if (followingAction == null) return null;
         
@@ -657,7 +657,7 @@ public static class Analysis {
         var trueAction = syntax.Statement.CollapsedStatements().SingleOrDefaultAllowMany();
         if (trueAction == null) return null;
 
-        if (syntax.ElseOpt != null) return null;
+        if (syntax.Else != null) return null;
         var prev = syntax.TryGetPrevStatement();
         if (prev == null) return null;
 

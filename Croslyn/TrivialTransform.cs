@@ -67,11 +67,8 @@ public static class TrivialTransforms {
     }
     public static LocalDeclarationStatementSyntax VarInit(this SyntaxToken name, ExpressionSyntax value) {
         return Syntax.LocalDeclarationStatement(declaration: Syntax.VariableDeclaration(
-            Syntax.IdentifierName(Syntax.Token(SyntaxKind.VarKeyword)),
-            Syntax.VariableDeclarator(
-                name,
-                initializerOpt: Syntax.EqualsValueClause(
-                    value: value)).SepList1()));
+            Syntax.IdentifierName(Syntax.Token(SyntaxKind.TypeVarKeyword)),
+            Syntax.VariableDeclarator(name).WithInitializer(Syntax.EqualsValueClause(value)).SepList1()));
     }
     public static ExpressionStatementSyntax VarAssign(this ExpressionSyntax lhs, ExpressionSyntax value) {
         return Syntax.ExpressionStatement(Syntax.BinaryExpression(SyntaxKind.AssignExpression, lhs, Syntax.Token(SyntaxKind.EqualsToken), value));
@@ -80,7 +77,7 @@ public static class TrivialTransforms {
         return Syntax.IfStatement(
             condition: condition,
             statement: conditionalAction,
-            elseOpt: alternativeAction == null ? null : Syntax.ElseClause(statement: alternativeAction));
+            @else: alternativeAction == null ? null : Syntax.ElseClause(statement: alternativeAction));
     }
     public static ConditionalExpressionSyntax Conditional(this ExpressionSyntax condition, ExpressionSyntax whenTrue, ExpressionSyntax whenFalse) {
         return Syntax.ConditionalExpression(

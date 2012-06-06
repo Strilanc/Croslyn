@@ -15,16 +15,9 @@ using Strilbrary.Values;
 namespace Croslyn.CodeIssues {
     [ExportSyntaxNodeCodeIssueProvider("Croslyn", LanguageNames.CSharp, typeof(IfStatementSyntax))]
     internal class UnnecessaryElse : ICodeIssueProvider {
-        private readonly ICodeActionEditFactory editFactory;
-
-        [ImportingConstructor]
-        internal UnnecessaryElse(ICodeActionEditFactory editFactory) {
-            this.editFactory = editFactory;
-        }
-
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {
             var ifStatement = node as IfStatementSyntax;
-            if (ifStatement == null || ifStatement.ElseOpt == null) return null;
+            if (ifStatement == null || ifStatement.Else == null) return null;
             var withUnguardedElse = ifStatement.WithUnguardedElse();
             var flipped = ifStatement.Inverted();
             var withUnguardedElseFlip = flipped.WithUnguardedElse();
@@ -35,11 +28,11 @@ namespace Croslyn.CodeIssues {
 
             return new[] { new CodeIssue(
                 CodeIssue.Severity.Warning,
-                ifStatement.ElseOpt.ElseKeyword.Span,
+                ifStatement.Else.ElseKeyword.Span,
                 "Unnecessary else",
                 new[] { 
-                    b1 ? ifStatement.MakeReplaceStatementWithManyAction(withUnguardedElse, "Inline unnecessary else block", editFactory, document) : null,
-                    b2 ? ifStatement.MakeReplaceStatementWithManyAction(withUnguardedElseFlip, "Invert and inline unnecessary else block", editFactory, document) : null
+                    b1 ? ifStatement.MakeReplaceStatementWithManyAction(withUnguardedElse, "Inline unnecessary else block", document) : null,
+                    b2 ? ifStatement.MakeReplaceStatementWithManyAction(withUnguardedElseFlip, "Invert and inline unnecessary else block", document) : null
                 }.Where(e => e != null)) };
         }
 

@@ -10,7 +10,7 @@ using Strilbrary.Collections;
 
 public static class Estimation {
     public static double Bloat(this SyntaxNode node) {
-        return node.DescendentNodesAndSelf().Count();
+        return node.DescendantNodesAndSelf().Count();
     }
     public static double Depth(this SyntaxNode node) {
         var b = node.AncestorsAndSelf().Count();

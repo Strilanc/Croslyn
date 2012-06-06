@@ -48,14 +48,14 @@ public static class Transforms {
         return Syntax.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression, operand: e.Bracketed());
     }
 
-    public static ICodeAction MakeReplaceStatementWithManyAction(this StatementSyntax oldStatement, IEnumerable<StatementSyntax> newStatements, String desc, ICodeActionEditFactory editFactory, IDocument document) {
+    public static ICodeAction MakeReplaceStatementWithManyAction(this StatementSyntax oldStatement, IEnumerable<StatementSyntax> newStatements, String desc, IDocument document) {
         var statements = newStatements.ToArray();
         if (statements.Length == 1)
-            return new ReadyCodeAction(desc, editFactory, document, oldStatement, () => statements.Single());
+            return new ReadyCodeAction(desc, document, oldStatement, () => statements.Single());
         var b = oldStatement.Parent as BlockSyntax;
         if (b != null)
-            return new ReadyCodeAction(desc, editFactory, document, b, () => b.With(statements: b.Statements.WithItemReplacedByMany(oldStatement, statements)));
-        return new ReadyCodeAction(desc, editFactory, document, oldStatement, () => statements.List().Block());
+            return new ReadyCodeAction(desc, document, b, () => b.With(statements: b.Statements.WithItemReplacedByMany(oldStatement, statements)));
+        return new ReadyCodeAction(desc, document, oldStatement, () => statements.List().Block());
     }
     ///<summary>Returns an equivalent expression syntax with brackets added around it, if necessary.</summary>
     public static ParenthesizedExpressionSyntax Bracketed(this ExpressionSyntax e) {
@@ -82,7 +82,7 @@ public static class Transforms {
         return e.With(
             condition: e.Condition.Inverted(), 
             statement: e.ElseStatementOrEmptyBlock(),
-            elseOpt: (e.ElseOpt ?? Syntax.ElseClause()).With(statement: e.Statement));
+            elseOpt: e.Else == null ? Syntax.ElseClause(e.Statement) : e.Else.WithStatement(e.Statement));
     }
 
     public static SyntaxList<T> WithItemReplacedByMany<T>(this SyntaxList<T> items, T replacedNode, IEnumerable<T> newNodes) where T : SyntaxNode {
@@ -99,11 +99,11 @@ public static class Transforms {
         return newNodesIter.List().Block();
     }
     public static IEnumerable<StatementSyntax> WithUnguardedElse(this IfStatementSyntax e) {
-        if (e.ElseOpt == null) return new[] { e };
+        if (e.Else == null) return new[] { e };
         if (!e.Statement.IsGuaranteedToJumpOut()) return new[] { e };
         var trimmedIf = e.Update(e.IfKeyword, e.OpenParenToken, e.Condition, e.CloseParenToken, e.Statement, null);
-        var inlinedElse = e.ElseOpt.Statement.Statements();
-        var lostTrivia = e.ElseOpt.ElseKeyword.GetAllTrivia();
+        var inlinedElse = e.Else.Statement.Statements();
+        var lostTrivia = e.Else.ElseKeyword.GetAllTrivia();
         return new StatementSyntax[] {
             trimmedIf.WithTrailingTrivia(trimmedIf.GetTrailingTrivia().Concat(lostTrivia))
         }.Concat(inlinedElse);
@@ -114,11 +114,11 @@ public static class Transforms {
         Contract.Requires(method != null);
         var model = document.GetSemanticModel();
         var methodSymbol = (MethodSymbol)model.GetDeclaredSymbol(method);
-        var root = ((Roslyn.Compilers.CSharp.SyntaxTree)document.GetSyntaxTree()).Root;
-        var invocations = from node in root.DescendentNodes(e => !(e is ExpressionSyntax)).OfType<ExpressionStatementSyntax>()
+        var root = ((Roslyn.Compilers.CSharp.SyntaxTree)document.GetSyntaxTree()).GetRoot();
+        var invocations = from node in root.DescendantNodes(e => !(e is ExpressionSyntax)).OfType<ExpressionStatementSyntax>()
                           let inv = node.Expression as InvocationExpressionSyntax
                           where inv != null
-                          let exp = (MethodSymbol)model.GetSemanticInfo(inv.Expression).Symbol
+                          let exp = (MethodSymbol)model.GetSymbolInfo(inv.Expression).Symbol
                           where exp == methodSymbol
                           select (SyntaxNode)node;
         return root.ReplaceNodes(invocations.Append(method), (e, a) => e.Dropped());
@@ -144,7 +144,7 @@ public static class Transforms {
     }
 
     public static SyntaxNode RemoveStatementsWithNoEffect(this SyntaxNode root, ISemanticModel model = null) {
-        return root.ReplaceNodes(root.DescendentNodesAndSelf()
+        return root.ReplaceNodes(root.DescendantNodesAndSelf()
                                      .OfType<StatementSyntax>()
                                      .Where(e => e.HasSideEffects(model).IsProbablyFalse), 
                                  (e,a) => e.Dropped());
@@ -169,7 +169,7 @@ public static class Transforms {
         if (canOmitTrueBranch)
             return syntax.With(
                 condition: syntax.Condition.Inverted(),
-                statement: syntax.ElseOpt.Statement,
+                statement: syntax.Else.Statement,
                 elseOpt: new Renullable<ElseClauseSyntax>(null));
 
         return syntax;
@@ -214,6 +214,6 @@ public static class Transforms {
         return node.WithLeadingTrivia().WithTrailingTrivia();
     }
     public static T WithoutAnyTriviaOrInternalTrivia<T>(this T node) where T : SyntaxNode {
-        return node.ReplaceNodes(node.DescendentNodesAndSelf(), (e, a) => a.WithoutTrivia());
+        return node.ReplaceNodes(node.DescendantNodesAndSelf(), (e, a) => a.WithoutTrivia());
     }
 }

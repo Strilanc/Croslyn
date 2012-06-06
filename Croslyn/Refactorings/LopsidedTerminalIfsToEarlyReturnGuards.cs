@@ -15,16 +15,9 @@ using Strilbrary.Values;
 namespace Croslyn.Refactorings {
     [ExportCodeRefactoringProvider("Croslyn", LanguageNames.CSharp)]
     class LopsidedTerminalIfsToEarlyReturnGuards : ICodeRefactoringProvider {
-        private readonly ICodeActionEditFactory editFactory;
-
-        [ImportingConstructor]
-        public LopsidedTerminalIfsToEarlyReturnGuards(ICodeActionEditFactory editFactory) {
-            this.editFactory = editFactory;
-        }
-
         public CodeRefactoring GetRefactoring(IDocument document, TextSpan textSpan, CancellationToken cancellationToken) {
             var tree = (SyntaxTree)document.GetSyntaxTree(cancellationToken);
-            var token = tree.Root.FindToken(textSpan.Start);
+            var token = tree.GetRoot().FindToken(textSpan.Start);
             var p = token.Parent;
             
             var desc = p.TryGetCodeBlockOrAreaDescription();
@@ -32,10 +25,9 @@ namespace Croslyn.Refactorings {
 
             return new CodeRefactoring(new[] { new ReadyCodeAction(
                 "Lopsided Terminal Ifs -> Early Return Guards in " + desc,
-                editFactory,
                 document,
                 p,
-                () => p.ReplaceNodes(p.DescendentNodes().OfType<BlockSyntax>(), (e,a) => LopsidedTerminalBranchesToGuardedBranches(a)))});
+                () => p.ReplaceNodes(p.DescendantNodes().OfType<BlockSyntax>(), (e,a) => LopsidedTerminalBranchesToGuardedBranches(a)))});
         }
         public static BlockSyntax LopsidedTerminalBranchesToGuardedBranches(BlockSyntax syntax) {
             return syntax.With(statements: syntax.Statements.SelectMany(e => e is IfStatementSyntax ? LopsidedTerminalBranchesToGuardedBranches((IfStatementSyntax)e) : new[] { e }).List());
@@ -45,15 +37,15 @@ namespace Croslyn.Refactorings {
             Contract.Requires(syntax.Parent is BlockSyntax);
 
             if (syntax.Statement.IsGuaranteedToJumpOut()) return new[] { syntax };
-            if (syntax.ElseOpt != null && syntax.ElseOpt.Statement.IsGuaranteedToJumpOut()) return new[] { syntax };
+            if (syntax.Else != null && syntax.Else.Statement.IsGuaranteedToJumpOut()) return new[] { syntax };
             var allowedJump = syntax.TryGetEquivalentJumpAfterStatement();
             if (allowedJump == null) return new[] { syntax };
 
             var trueBloat = syntax.Statement.Bloat();
-            var falseBloat = syntax.ElseOpt == null ? 0 : syntax.ElseOpt.Statement.Bloat();
+            var falseBloat = syntax.Else == null ? 0 : syntax.Else.Statement.Bloat();
             if (trueBloat < falseBloat * 2 - 10) {
                 // inline the false branch, guard with the true branch
-                return syntax.ElseOpt.Statement.Statements().Prepend(
+                return syntax.Else.Statement.Statements().Prepend(
                     syntax.With(
                         statement: syntax.Statement.BracedTo(syntax.Statement.Statements().Concat(new[] {allowedJump})),
                         elseOpt: new Renullable<ElseClauseSyntax>(null)));
@@ -63,7 +55,7 @@ namespace Croslyn.Refactorings {
                 return syntax.Statement.Statements().Prepend(
                     syntax.With(
                         condition: syntax.Condition.Inverted(),
-                        statement: syntax.ElseOpt == null ? allowedJump : syntax.ElseOpt.Statement.BracedTo(syntax.ElseOpt.Statement.Statements().Concat(new[] {allowedJump})),
+                        statement: syntax.Else == null ? allowedJump : syntax.Else.Statement.BracedTo(syntax.Else.Statement.Statements().Concat(new[] {allowedJump})),
                         elseOpt: new Renullable<ElseClauseSyntax>(null)));
             }
 

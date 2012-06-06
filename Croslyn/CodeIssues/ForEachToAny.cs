@@ -15,13 +15,6 @@ using Strilbrary.Values;
 namespace Croslyn.CodeIssues {
     [ExportSyntaxNodeCodeIssueProvider("Croslyn", LanguageNames.CSharp, typeof(ForEachStatementSyntax))]
     internal class ForEachToAny : ICodeIssueProvider {
-        private readonly ICodeActionEditFactory editFactory;
-
-        [ImportingConstructor]
-        internal ForEachToAny(ICodeActionEditFactory editFactory) {
-            this.editFactory = editFactory;
-        }
-
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {
             var forLoop = (ForEachStatementSyntax)node;
             var model = document.GetSemanticModel();
@@ -43,7 +36,6 @@ namespace Croslyn.CodeIssues {
             // expose as code action/issue
             var action = new ReadyCodeAction(
                 "Execute once if any",
-                editFactory,
                 document,
                 forLoop,
                 () => replacement);

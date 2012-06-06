@@ -21,7 +21,7 @@ public class ReplaceAction {
         this.OldNode = oldNode;
         this.NewNode = newNode;
     }
-    public ICodeAction AsCodeAction(ICodeActionEditFactory editFactory, IDocument document) {
-        return new ReadyCodeAction(Description, editFactory, document, OldNode, () => NewNode);
+    public ICodeAction AsCodeAction(IDocument document) {
+        return new ReadyCodeAction(Description, document, OldNode, () => NewNode);
     }
 }
