@@ -39,7 +39,7 @@ internal class ReadyCodeAction : ICodeAction {
             oldNodes,
             (e, a) => {
                 var n = newNodeFunc(e, a);
-                //if (addFormatAnnotation) n = n.Format(new Roslyn.Services.Formatting.FormattingOptions());
+                if (addFormatAnnotation) n = CodeAnnotations.Formatting.AddAnnotationTo(n);
                 return n;
             });
         return new CodeActionEdit(document.UpdateSyntaxRoot(newRoot));
