@@ -43,19 +43,18 @@ namespace Croslyn.CodeIssues {
 
             if (unmutatedVars.Length == 0) return null;
             if (unmutatedVars.Length == fieldNode.Declaration.Variables.Count) {
-                var r = new ReadyCodeAction("Make readonly", document, fieldNode, () => fieldNode.With(modifiers: modsWithReadOnly));
+                var r = new ReadyCodeAction("Make readonly", document, fieldNode, () => fieldNode.WithModifiers(modsWithReadOnly));
                 var desc = unmutatedVars.Length == 1 ? "Mutable field is never modified." : "Mutable fields are never modified.";
                 return r.CodeIssues1(CodeIssue.Severity.Warning, fieldNode.Declaration.Type.Span, desc);
             }
 
             return unmutatedVars.Select(v => {
-                var singleReadOnly = fieldNode.With(
-                    modifiers: modsWithReadOnly,
-                    declaration: fieldNode.Declaration.With(variables: v.SepList1()));
+                var singleReadOnly = fieldNode.WithModifiers(modsWithReadOnly)
+                                              .WithDeclaration(fieldNode.Declaration.WithVariables(v.SepList1()));
                 var rest = fieldNode
                            .WithLeadingTrivia()
                            .WithTrailingTrivia(Syntax.Whitespace(Environment.NewLine))
-                           .With(declaration: fieldNode.Declaration.With(variables: fieldNode.Declaration.Variables.Without(v)));
+                           .WithDeclaration(fieldNode.Declaration.WithVariables(fieldNode.Declaration.Variables.Without(v)));
                 var newClassDecl = classDecl.With(members: classDecl.Members.WithItemReplacedByMany(fieldNode, new[] { singleReadOnly, rest }));
                 var action = new ReadyCodeAction("Split readonly", document, classDecl, () => newClassDecl);
                 return new CodeIssue(CodeIssue.Severity.Warning, v.Identifier.Span, "Mutable field is never modified.", new[] { action });

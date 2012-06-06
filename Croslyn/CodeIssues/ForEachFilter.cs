@@ -39,7 +39,7 @@ namespace Croslyn.CodeIssues {
 
             var query = forLoop.Expression.Accessing("Where").Invoking(forLoop.Identifier.Lambdad(condition).Args1());
 
-            var forWhereDo = forLoop.With(expression: query, statement: conditionalActions);
+            var forWhereDo = forLoop.WithExpression(query).WithStatement(conditionalActions);
 
             var switchToWhere = new ReadyCodeAction(
                 "Filter collection",

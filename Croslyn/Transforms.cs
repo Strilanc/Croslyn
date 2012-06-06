@@ -54,7 +54,7 @@ public static class Transforms {
             return new ReadyCodeAction(desc, document, oldStatement, () => statements.Single());
         var b = oldStatement.Parent as BlockSyntax;
         if (b != null)
-            return new ReadyCodeAction(desc, document, b, () => b.With(statements: b.Statements.WithItemReplacedByMany(oldStatement, statements)));
+            return new ReadyCodeAction(desc, document, b, () => b.WithStatements(b.Statements.WithItemReplacedByMany(oldStatement, statements)));
         return new ReadyCodeAction(desc, document, oldStatement, () => statements.List().Block());
     }
     ///<summary>Returns an equivalent expression syntax with brackets added around it, if necessary.</summary>
@@ -79,10 +79,9 @@ public static class Transforms {
     /// <summary>Inverts the clause of an if statement, flipping the true and false branches</summary>
     public static IfStatementSyntax Inverted(this IfStatementSyntax e) {
         Contract.Requires(e != null);
-        return e.With(
-            condition: e.Condition.Inverted(), 
-            statement: e.ElseStatementOrEmptyBlock(),
-            elseOpt: e.Else == null ? Syntax.ElseClause(e.Statement) : e.Else.WithStatement(e.Statement));
+        return e.WithCondition(e.Condition.Inverted())
+                .WithStatement(e.ElseStatementOrEmptyBlock())
+                .WithElse(e.Else == null ? Syntax.ElseClause(e.Statement) : e.Else.WithStatement(e.Statement));
     }
 
     public static SyntaxList<T> WithItemReplacedByMany<T>(this SyntaxList<T> items, T replacedNode, IEnumerable<T> newNodes) where T : SyntaxNode {
@@ -95,7 +94,7 @@ public static class Transforms {
     }
     public static StatementSyntax BracedTo(this StatementSyntax replacedNode, IEnumerable<StatementSyntax> newNodesIter) {
         if (replacedNode is BlockSyntax)
-            return (replacedNode as BlockSyntax).With(statements: newNodesIter.List());
+            return (replacedNode as BlockSyntax).WithStatements(newNodesIter.List());
         return newNodesIter.List().Block();
     }
     public static IEnumerable<StatementSyntax> WithUnguardedElse(this IfStatementSyntax e) {
@@ -165,13 +164,11 @@ public static class Transforms {
             
         // can we remove one of the branches?
         if (canOmitFalseBranch) 
-            return syntax.With(elseOpt: new Renullable<ElseClauseSyntax>(null));
+            return syntax.WithElse(null);
         if (canOmitTrueBranch)
-            return syntax.With(
-                condition: syntax.Condition.Inverted(),
-                statement: syntax.Else.Statement,
-                elseOpt: new Renullable<ElseClauseSyntax>(null));
-
+            return syntax.WithCondition(syntax.Condition.Inverted())
+                         .WithStatement(syntax.Else.Statement)
+                         .WithElse(null);
         return syntax;
     }
 

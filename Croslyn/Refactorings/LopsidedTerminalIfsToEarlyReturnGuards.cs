@@ -30,7 +30,7 @@ namespace Croslyn.Refactorings {
                 () => p.ReplaceNodes(p.DescendantNodes().OfType<BlockSyntax>(), (e,a) => LopsidedTerminalBranchesToGuardedBranches(a)))});
         }
         public static BlockSyntax LopsidedTerminalBranchesToGuardedBranches(BlockSyntax syntax) {
-            return syntax.With(statements: syntax.Statements.SelectMany(e => e is IfStatementSyntax ? LopsidedTerminalBranchesToGuardedBranches((IfStatementSyntax)e) : new[] { e }).List());
+            return syntax.WithStatements(syntax.Statements.SelectMany(e => e is IfStatementSyntax ? LopsidedTerminalBranchesToGuardedBranches((IfStatementSyntax)e) : new[] { e }).List());
         }
         public static IEnumerable<StatementSyntax> LopsidedTerminalBranchesToGuardedBranches(IfStatementSyntax syntax) {
             Contract.Requires(syntax != null);
@@ -46,17 +46,15 @@ namespace Croslyn.Refactorings {
             if (trueBloat < falseBloat * 2 - 10) {
                 // inline the false branch, guard with the true branch
                 return syntax.Else.Statement.Statements().Prepend(
-                    syntax.With(
-                        statement: syntax.Statement.BracedTo(syntax.Statement.Statements().Concat(new[] {allowedJump})),
-                        elseOpt: new Renullable<ElseClauseSyntax>(null)));
+                    syntax.WithStatement(syntax.Statement.BracedTo(syntax.Statement.Statements().Concat(new[] {allowedJump})))
+                          .WithElse(null));
             }
             if (falseBloat < trueBloat * 2 - 10) {
                 // inline the true branch, guard with the false branch
                 return syntax.Statement.Statements().Prepend(
-                    syntax.With(
-                        condition: syntax.Condition.Inverted(),
-                        statement: syntax.Else == null ? allowedJump : syntax.Else.Statement.BracedTo(syntax.Else.Statement.Statements().Concat(new[] {allowedJump})),
-                        elseOpt: new Renullable<ElseClauseSyntax>(null)));
+                    syntax.WithCondition(syntax.Condition.Inverted())
+                          .WithStatement(syntax.Else == null ? allowedJump : syntax.Else.Statement.BracedTo(syntax.Else.Statement.Statements().Concat(new[] {allowedJump})))
+                          .WithElse(null));
             }
 
             return new[] { syntax };

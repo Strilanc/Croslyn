@@ -125,17 +125,19 @@ public static class TrivialTransforms {
         if (syntax.IsAssignment()) {
             var s = (ExpressionStatementSyntax)syntax;
             var b = (BinaryExpressionSyntax)s.Expression;
-            return s.With(expression: b.With(right: rhs));
+            return s.WithExpression(b.WithRight(rhs));
         }
         if (syntax.IsSingleInitialization()) {
             var d = (LocalDeclarationStatementSyntax)syntax;
-            return d.With(declaration: d.Declaration.With(variables: Syntax.SeparatedList(d.Declaration.Variables.Single().With(initializerOpt: Syntax.EqualsValueClause(value: rhs)))));
+            return d.WithDeclaration(d.Declaration.WithVariables(
+                d.Declaration.Variables.Single().WithInitializer(Syntax.EqualsValueClause(rhs)).SepList1()
+            ));
         }
         return null;
     }
     public static StatementSyntax TryUpdateRHSForAssignmentOrInitOrReturn(this StatementSyntax syntax, ExpressionSyntax rhs) {
         if (syntax.IsReturnValue())
-            return ((ReturnStatementSyntax)syntax).With(expressionOpt: new Renullable<ExpressionSyntax>(rhs));
+            return ((ReturnStatementSyntax)syntax).WithExpression(rhs);
         return syntax.TryWithNewRightHandSideOfAssignmentOrSingleInit(rhs);
     }
     public static SyntaxToken AsToken(this SyntaxKind kind) {

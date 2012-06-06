@@ -41,7 +41,7 @@ namespace Croslyn.CodeIssues {
                                       .Accessing("Select")
                                       .Invoking(forLoop.Identifier.Lambdad(projection).Args1());
             var newBody = forLoop.Statement.ReplaceNode(projection, singleRead);
-            var replacedLoop = forLoop.With(expression: projectedCollection, statement: newBody);
+            var replacedLoop = forLoop.WithExpression(projectedCollection).WithStatement(newBody);
 
             // expose as code action/issue
             var action = new ReadyCodeAction(

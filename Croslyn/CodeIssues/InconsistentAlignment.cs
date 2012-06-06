@@ -26,11 +26,11 @@ namespace Croslyn.CodeIssues {
             if (tree == null) return null;
             var n = (SyntaxNode)node;
             var para = node as ParameterListSyntax;
-            if (para != null) return GetAlignmentIssue(document, tree, para.Parameters, n, L => para.With(parameters: para.Parameters.With(L)));
+            if (para != null) return GetAlignmentIssue(document, tree, para.Parameters, n, L => para.WithParameters(para.Parameters.With(L)));
             var arg = node as ArgumentListSyntax;
-            if (arg != null) return GetAlignmentIssue(document, tree, arg.Arguments, n, L => arg.With(arguments: arg.Arguments.With(L)));
+            if (arg != null) return GetAlignmentIssue(document, tree, arg.Arguments, n, L => arg.WithArguments(arg.Arguments.With(L)));
             var ini = node as InitializerExpressionSyntax;
-            if (ini != null) return GetAlignmentIssue(document, tree, ini.Expressions, n, L => ini.With(expressions: ini.Expressions.With(L)));
+            if (ini != null) return GetAlignmentIssue(document, tree, ini.Expressions, n, L => ini.WithExpressions(ini.Expressions.With(L)));
             var lin = node as QueryExpressionSyntax;
             if (lin != null) return GetAlignmentIssue(document, tree, lin.Body.Clauses, n, L => lin.WithBody(lin.Body.WithClauses(L.List())));
             return null;

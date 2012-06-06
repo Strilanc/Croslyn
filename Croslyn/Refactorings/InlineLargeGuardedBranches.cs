@@ -30,7 +30,7 @@ namespace Croslyn.Refactorings {
                 () => p.ReplaceNodes(p.DescendantNodes().OfType<BlockSyntax>(), (e,a) => InlineLargeGuardedBranches2(a)))});
         }
         private static BlockSyntax InlineLargeGuardedBranches2(BlockSyntax syntax) {
-            return syntax.With(statements: syntax.Statements.SelectMany(e => e is IfStatementSyntax ? InlineLargeGuardedBranches2(e as IfStatementSyntax) : new[] { e }).List());
+            return syntax.WithStatements(syntax.Statements.SelectMany(e => e is IfStatementSyntax ? InlineLargeGuardedBranches2(e as IfStatementSyntax) : new[] { e }).List());
         }
         private static IEnumerable<StatementSyntax> InlineLargeGuardedBranches2(IfStatementSyntax syntax) {
             Contract.Requires(syntax != null);
