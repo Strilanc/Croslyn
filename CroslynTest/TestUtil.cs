@@ -25,6 +25,7 @@ public static class TestUtil {
         Assert.IsTrue(n1.Kind == n2.Kind);
     }
     public static void AssertSameSyntax(this SyntaxNode n1, SyntaxNode n2) {
+        if (n1 == null && n2 == null) return;
         Assert.IsTrue(n1.Kind == n2.Kind);
         if (n1 is SimpleNameSyntax || n1 is IdentifierNameSyntax || n1 is LiteralExpressionSyntax) {
             Assert.AreEqual(n1.WithoutTrivia().ToString(), n2.WithoutTrivia().ToString());
@@ -32,15 +33,12 @@ public static class TestUtil {
             var m1 = (MemberAccessExpressionSyntax)n1;
             var m2 = (MemberAccessExpressionSyntax)n2;
             AssertSameSyntax(m1.Expression, m2.Expression);
-            Assert.IsTrue(m1.Name == m2.Name);
+            AssertSameSyntax(m1.Name, m2.Name);
         } else if (n1 is InvocationExpressionSyntax) {
             var m1 = (InvocationExpressionSyntax)n1;
             var m2 = (InvocationExpressionSyntax)n2;
             AssertSameSyntax(m1.Expression, m2.Expression);
-            Assert.IsTrue(m1.ArgumentList.Arguments.Count == m2.ArgumentList.Arguments.Count);
-            for (var i = 0; i < m1.ArgumentList.Arguments.Count; i++) {
-                AssertSameSyntax(m1.ArgumentList.Arguments[i], m2.ArgumentList.Arguments[i]);
-            }
+            AssertSameSyntax(m1.ArgumentList, m2.ArgumentList);
         } else if (n1 is BinaryExpressionSyntax) {
             var m1 = (BinaryExpressionSyntax)n1;
             var m2 = (BinaryExpressionSyntax)n2;
@@ -62,6 +60,64 @@ public static class TestUtil {
             var m1 = (ParenthesizedExpressionSyntax)n1;
             var m2 = (ParenthesizedExpressionSyntax)n2;
             AssertSameSyntax(m1.Expression, m2.Expression);
+        } else if (n1 is ForEachStatementSyntax) {
+            var m1 = (ForEachStatementSyntax)n1;
+            var m2 = (ForEachStatementSyntax)n2;
+            AssertSameSyntax(m1.Identifier, m2.Identifier);
+            AssertSameSyntax(m1.Statement, m2.Statement);
+            AssertSameSyntax(m1.Expression, m2.Expression);
+        } else if (n1 is BlockSyntax) {
+            var m1 = (BlockSyntax)n1;
+            var m2 = (BlockSyntax)n2;
+            Assert.IsTrue(m1.Statements.Count == m2.Statements.Count);
+            for (var i = 0; i < m1.Statements.Count; i++)
+                AssertSameSyntax(m1.Statements[i], m2.Statements[i]);
+        } else if (n1 is IfStatementSyntax) {
+            var m1 = (IfStatementSyntax)n1;
+            var m2 = (IfStatementSyntax)n2;
+            AssertSameSyntax(m1.Condition, m2.Condition);
+            AssertSameSyntax(m1.Statement, m2.Statement);
+            AssertSameSyntax(m1.Else, m2.Else);
+        } else if (n1 is ElseClauseSyntax) {
+            var m1 = (ElseClauseSyntax)n1;
+            var m2 = (ElseClauseSyntax)n2;
+            AssertSameSyntax(m1.Statement, m2.Statement);
+        } else if (n1 is ArgumentListSyntax) {
+            var m1 = (ArgumentListSyntax)n1;
+            var m2 = (ArgumentListSyntax)n2;
+            Assert.IsTrue(m1.Arguments.Count == m2.Arguments.Count);
+            for (var i = 0; i < m1.Arguments.Count; i++)
+                AssertSameSyntax(m1.Arguments[i], m2.Arguments[i]);
+        } else if (n1 is ArgumentSyntax) {
+            var m1 = (ArgumentSyntax)n1;
+            var m2 = (ArgumentSyntax)n2;
+            AssertSameSyntax(m1.NameColon, m2.NameColon);
+            if (m1.RefOrOutKeyword != null) Assert.IsTrue(m1.RefOrOutKeyword.Kind == m2.RefOrOutKeyword.Kind);
+            AssertSameSyntax(m1.Expression, m2.Expression);
+        } else if (n1 is NameColonSyntax) {
+            var m1 = (NameColonSyntax)n1;
+            var m2 = (NameColonSyntax)n2;
+            AssertSameSyntax(m1.Identifier, m2.Identifier);
+        } else if (n1 is ExpressionStatementSyntax) {
+            var m1 = (ExpressionStatementSyntax)n1;
+            var m2 = (ExpressionStatementSyntax)n2;
+            AssertSameSyntax(m1.Expression, m2.Expression);
+        } else if (n1 is SimpleLambdaExpressionSyntax) {
+            var m1 = (SimpleLambdaExpressionSyntax)n1;
+            var m2 = (SimpleLambdaExpressionSyntax)n2;
+            AssertSameSyntax(m1.Parameter, m2.Parameter);
+            AssertSameSyntax(m1.Body, m2.Body);
+        } else if (n1 is ParameterListSyntax) {
+            var m1 = (ParameterListSyntax)n1;
+            var m2 = (ParameterListSyntax)n2;
+            Assert.IsTrue(m1.Parameters.Count == m2.Parameters.Count);
+            for (var i = 0; i < m1.Parameters.Count; i++)
+                AssertSameSyntax(m1.Parameters[i], m2.Parameters[i]);
+        } else if (n1 is ParameterSyntax) {
+            var m1 = (ParameterSyntax)n1;
+            var m2 = (ParameterSyntax)n2;
+            AssertSameSyntax(m1.Type, m2.Type);
+            AssertSameSyntax(m1.Identifier, m2.Identifier);
         } else {
             throw new NotImplementedException();
         }
