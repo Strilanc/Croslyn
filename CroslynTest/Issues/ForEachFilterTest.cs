@@ -10,7 +10,13 @@ using Roslyn.Compilers;
 
 [TestClass()]
 public class ForEachFilterTest {
-    private void SimpleTest(string pars, string collection, string body, string newCollection, string newBody) {
+    private void AssertNoOptimization(string pars, string collection, string body) {
+        var tree1 = ("void f(" + pars + ") { foreach (var e in " + collection + ") { " + body + " }").ParseFunctionTreeFromString();
+        var statements1 = (ForEachStatementSyntax)tree1.TestGetParsedFunctionStatements().Single();
+        var model = tree1.GetTestSemanticModel();
+        Assert.IsTrue(ForEachFilter.GetSimplifications(statements1, model).Count() == 0);
+    }
+    private void AssertOptimizes(string pars, string collection, string body, string newCollection, string newBody) {
         var tree1 = ("void f(" + pars + ") { foreach (var e in " + collection + ") { " + body + " }").ParseFunctionTreeFromString();
         var tree2 = ("void f(" + pars + ") { foreach (var e in " + newCollection + ") { " + newBody + " }").ParseFunctionTreeFromString();
         var statements1 = (ForEachStatementSyntax)tree1.TestGetParsedFunctionStatements().Single();
@@ -21,10 +27,30 @@ public class ForEachFilterTest {
 
     [TestMethod()]
     public void FilterTest() {
-        SimpleTest("IEnumerable<int> c, Func<int, bool> b, Action a",
-                   "c",
-                   "if (b(e)) { a(); }",
-                   "c.Where(e => b(e))",
-                   "a()");
+        AssertOptimizes(
+            "IEnumerable<int> c, Func<int, bool> b, Action a",
+            "c",
+            "if (b(e)) { a(); }",
+            "c.Where(e => b(e))",
+            "a()");
+        AssertOptimizes(
+            "IEnumerable<int> c, Func<int, bool> b, Action a",
+            "c",
+            "if (b(e)) { a(); a(); }",
+            "c.Where(e => b(e))",
+            "a(); a();");
+
+        AssertNoOptimization(
+            "IEnumerable<int> c, Func<int, bool> b, Action a",
+            "c",
+            "if (b(e)) { a(); }; a();");
+        AssertNoOptimization(
+            "IEnumerable<int> c, Func<int, bool> b, Action a",
+            "c",
+            "a(); if (b(e)) { a(); };");
+        AssertNoOptimization(
+            "IEnumerable<int> c, Func<int, bool> b, Action a",
+            "c",
+            "var c = b(e); a();");
     }
 }
