@@ -123,7 +123,10 @@ public static class Analysis {
             || parent is MemberAccessExpressionSyntax) {
             return executed.CompleteExecutionGuaranteesChildExecutedExactlyOnce(parent);
         }
-        if (parent is IfStatementSyntax) return parent == executed;
+        if (parent is IfStatementSyntax) {
+            if (child == ((IfStatementSyntax)parent).Condition) return executed.CompleteExecutionGuaranteesChildExecutedExactlyOnce(parent);
+            return parent == executed;
+        }
         if (parent is WhileStatementSyntax) return null;
         if (parent is ForEachStatementSyntax) return null;
         if (parent is BinaryExpressionSyntax) {
@@ -409,6 +412,10 @@ public static class Analysis {
         }
         if (expression is ParenthesizedExpressionSyntax) {
             return ((ParenthesizedExpressionSyntax)expression).Expression.HasSideEffects(model);
+        }
+        if (expression is ConditionalExpressionSyntax) {
+            var e = (ConditionalExpressionSyntax)expression;
+            return Enumerable.Max(new[] { e.Condition, e.WhenTrue, e.WhenFalse }.Select(x => x.HasSideEffects(model)));
         }
         return TentativeBool.Unknown;
     }

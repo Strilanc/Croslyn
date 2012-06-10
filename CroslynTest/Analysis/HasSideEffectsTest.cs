@@ -90,6 +90,26 @@ public class HasSideEffectsTest {
         Assert.AreEqual(TentativeBool.True, statement.HasSideEffects(tree.GetTestSemanticModel()));
     }
     [TestMethod()]
+    public void Ternary_PassTrue() {
+        var tree = @"
+            void f(bool b, bool t, bool f) {
+                if (b ? t : f)
+                    ;
+            }".ParseFunctionTreeFromString();
+        var statement = ((IfStatementSyntax)tree.TestGetParsedFunctionStatements().Single()).Condition;
+        Assert.AreEqual(TentativeBool.False, statement.HasSideEffects(tree.GetTestSemanticModel()));
+    }
+    [TestMethod()]
+    public void Ternary_PassFalse() {
+        var tree = @"
+            void f(bool b, bool t, Func<bool> f) {
+                if (b ? t : f())
+                    ;
+            }".ParseFunctionTreeFromString();
+        var statement = ((IfStatementSyntax)tree.TestGetParsedFunctionStatements().Single()).Condition;
+        Assert.AreEqual(TentativeBool.Unknown, statement.HasSideEffects(tree.GetTestSemanticModel()));
+    }
+    [TestMethod()]
     public void Literal_False() {
         var tree = @"
             void f() {

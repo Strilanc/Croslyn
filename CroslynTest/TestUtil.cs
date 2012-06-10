@@ -11,8 +11,8 @@ using Roslyn.Compilers;
 [TestClass()]
 public static class TestUtil {
     public static void ReplaceExpressionTest<T>(Func<T, ISemanticModel, IEnumerable<ReplaceAction>> trans, string pars, string original, params string[] results) where T : ExpressionSyntax {
-        var code = "using System; using System.Linq; using System.Collections.Generic; bool f(" + pars + ") { return " + original + "; }";
-        var tree = code.ParseFunctionTreeFromString();
+        var code = "bool f(" + pars + ") { return " + original + "; }";
+        var tree = code.ParseFunctionTreeFromStringUsingStandard();
         var m = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var ori = (T)((ReturnStatementSyntax)m.Body.Statements.Single()).Expression;
         var replacements = trans(ori, tree.GetTestSemanticModel()).ToArray();
@@ -118,6 +118,28 @@ public static class TestUtil {
             var m2 = (ParameterSyntax)n2;
             AssertSameSyntax(m1.Type, m2.Type);
             AssertSameSyntax(m1.Identifier, m2.Identifier);
+        } else if (n1 is LocalDeclarationStatementSyntax) {
+            var m1 = (LocalDeclarationStatementSyntax)n1;
+            var m2 = (LocalDeclarationStatementSyntax)n2;
+            AssertSameSyntax(m1.Declaration, m2.Declaration);
+            Assert.IsTrue(m1.Modifiers.Select(x => x.ValueText).SequenceEqual(m2.Modifiers.Select(x => x.ValueText)));
+        } else if (n1 is VariableDeclarationSyntax) {
+            var m1 = (VariableDeclarationSyntax)n1;
+            var m2 = (VariableDeclarationSyntax)n2;
+            AssertSameSyntax(m1.Type, m2.Type);
+            Assert.IsTrue(m1.Variables.Count == m2.Variables.Count);
+            for (var i = 0; i < m1.Variables.Count; i++) {
+                AssertSameSyntax(m1.Variables[i], m2.Variables[i]);
+            }
+        } else if (n1 is VariableDeclaratorSyntax) {
+            var m1 = (VariableDeclaratorSyntax)n1;
+            var m2 = (VariableDeclaratorSyntax)n2;
+            AssertSameSyntax(m1.Identifier, m2.Identifier);
+            AssertSameSyntax(m1.Initializer, m2.Initializer);
+        } else if (n1 is EqualsValueClauseSyntax) {
+            var m1 = (EqualsValueClauseSyntax)n1;
+            var m2 = (EqualsValueClauseSyntax)n2;
+            AssertSameSyntax(m1.Value, m2.Value);
         } else {
             throw new NotImplementedException();
         }
@@ -132,9 +154,13 @@ public static class TestUtil {
     public static SyntaxTree ParseFunctionTreeFromString(this String s) {
         return SyntaxTree.ParseCompilationUnit(s, options: ParseOptions.Default.WithKind(SourceCodeKind.Interactive));
     }
+    public static SyntaxTree ParseFunctionTreeFromStringUsingStandard(this String s) {
+        var c = "using System; using System.Linq; using System.Collections.Generic; class TEMP__WRAP__CLASS__ {" + s + "}";
+        return SyntaxTree.ParseCompilationUnit(c, options: ParseOptions.Default.WithKind(SourceCodeKind.Interactive));
+    }
     public static StatementSyntax[] TestGetParsedFunctionStatements(this SyntaxTree tree) {
         var compUnit = (CompilationUnitSyntax)tree.GetRoot();
-        var method = (MethodDeclarationSyntax)compUnit.ChildNodes().Single();
+        var method = compUnit.DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         return method.Body.Statements.ToArray();
     }
     public static ISemanticModel GetTestSemanticModel(this SyntaxTree tree) {

@@ -37,10 +37,10 @@ namespace Croslyn.CodeIssues {
             // safe iterator projection?
             var guaranteedProjectionPerIteration = forLoop.Statement.CompleteExecutionGuaranteesChildExecutedExactlyOnce(singleRead);
             var projection = singleRead.AncestorsAndSelf()
-                             .TakeWhile(e => !(e.Parent is StatementSyntax))
-                             .Where(e => e is ExpressionSyntax)
-                             .Cast<ExpressionSyntax>()
-                             .TakeWhile(e =>  guaranteedProjectionPerIteration == true || e.HasSideEffects(model).IsProbablyFalse)
+                             .TakeWhile(e => !(e is StatementSyntax))
+                             .OfType<ExpressionSyntax>()
+                             .TakeWhile(e => model.GetTypeInfo(e).Type.SpecialType != SpecialType.System_Void)
+                             .TakeWhile(e => guaranteedProjectionPerIteration == true || e.HasSideEffects(model).IsProbablyFalse)
                              .LastOrDefault();
             if (projection == null) yield break;
             if (projection.TryEvalAlternativeComparison(singleRead, model) == true) yield break;
