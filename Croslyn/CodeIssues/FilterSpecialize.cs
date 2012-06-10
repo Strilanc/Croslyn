@@ -15,6 +15,8 @@ using Strilbrary.Values;
 namespace Croslyn.CodeIssues {
     [ExportSyntaxNodeCodeIssueProvider("Croslyn", LanguageNames.CSharp, typeof(InvocationExpressionSyntax))]
     public class FilterSpecialize : ICodeIssueProvider {
+        private static readonly string[] Specializations = new[] { "First", "FirstOrDefault", "Last", "LastOrDefault", "Any" };
+
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {
             var invocation = (InvocationExpressionSyntax)node;
             var model = document.GetSemanticModel();
@@ -28,8 +30,6 @@ namespace Croslyn.CodeIssues {
         }
 
         public static IEnumerable<ReplaceAction> GetSimplifications(InvocationExpressionSyntax invocation, ISemanticModel model, CancellationToken cancellationToken = default(CancellationToken)) {
-            var allowed = new[] { "First", "FirstOrDefault", "Last", "LastOrDefault", "Any" };
-
             var dotSpecial = invocation.Expression as MemberAccessExpressionSyntax;
             if (dotSpecial == null) yield break;
             var invokeWhere = dotSpecial.Expression as InvocationExpressionSyntax;
@@ -37,14 +37,15 @@ namespace Croslyn.CodeIssues {
             var dotWhere = invokeWhere.Expression as MemberAccessExpressionSyntax;
             if (dotWhere == null) yield break;
 
-            if (!allowed.Contains(dotSpecial.Name.Identifier.ValueText)) yield break;
+            if (!Specializations.Contains(dotSpecial.Name.Identifier.ValueText)) yield break;
             if (dotWhere.Name.Identifier.ValueText != "Where") yield break;
             var type = model.GetTypeInfo(dotWhere.Expression).Type;
             if (type == null) yield break;
             var specialGenericTypes = new[] { type.OriginalDefinition.SpecialType }.Concat(type.AllInterfaces.Select(e => e.OriginalDefinition.SpecialType));
             if (!specialGenericTypes.Contains(SpecialType.System_Collections_Generic_IEnumerable_T)) yield break;
 
-            var better = dotWhere.Expression.Accessing(dotSpecial.Name).Invoking(invokeWhere.ArgumentList);
+            var better = invocation.WithExpression(dotWhere.WithName(dotSpecial.Name))
+                                   .WithArgumentList(invokeWhere.ArgumentList);
             yield return new ReplaceAction(
                 "Inline filter",
                 invocation,
