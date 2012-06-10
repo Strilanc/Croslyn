@@ -17,13 +17,13 @@ namespace Croslyn.CodeIssues {
     public class ForEachFilter : ICodeIssueProvider {
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {
             var forLoop = (ForEachStatementSyntax)node;
-            var model = document.TryGetSemanticModel();
-            if (model == null) return null;
+            var model = document.GetSemanticModel();
             var simplifications = GetSimplifications(forLoop, model, cancellationToken);
 
             return simplifications.Select(e => new CodeIssue(
                 CodeIssue.Severity.Warning, 
                 forLoop.ForEachKeyword.Span, 
+                "For each loop body can be simplified by filtering.",
                 new[] {e.AsCodeAction(document)}));
         }
 
