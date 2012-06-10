@@ -94,6 +94,7 @@
   <ItemGroup>
     <Compile Include="Analysis.cs" />
     <Compile Include="CodeAction.cs" />
+    <Compile Include="CodeIssues\FilterSpecialize.cs" />
     <Compile Include="CodeIssues\ForEachProject.cs" />
     <Compile Include="CodeIssues\ReducibleBooleanExpression.cs" />
     <Compile Include="CodeIssues\ReducibleConditionalExpression.cs" />

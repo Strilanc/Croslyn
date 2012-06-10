@@ -11,7 +11,7 @@ using Roslyn.Compilers;
 [TestClass()]
 public static class TestUtil {
     public static void ReplaceExpressionTest<T>(Func<T, ISemanticModel, IEnumerable<ReplaceAction>> trans, string pars, string original, params string[] results) where T : ExpressionSyntax {
-        var code = "using System; bool f(" + pars + ") { return " + original + "; }";
+        var code = "using System; using System.Linq; using System.Collections.Generic; bool f(" + pars + ") { return " + original + "; }";
         var tree = code.ParseFunctionTreeFromString();
         var m = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var ori = (T)((ReturnStatementSyntax)m.Body.Statements.Single()).Expression;

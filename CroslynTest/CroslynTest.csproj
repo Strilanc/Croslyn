@@ -65,6 +65,8 @@
     <Compile Include="Analysis\IsIdempotentTest.cs" />
     <Compile Include="Analysis\IsAnIterationSufficient.cs" />
     <Compile Include="Analysis\HasSideEffectsTest.cs" />
+    <Compile Include="Issues\FilterSpecializeTest.cs" />
+    <Compile Include="Issues\ForEachProjectTest.cs" />
     <Compile Include="Issues\ForEachFilterTest.cs" />
     <Compile Include="Issues\ReducibleBooleanExpressionTest.cs" />
     <Compile Include="TestUtil.cs" />
