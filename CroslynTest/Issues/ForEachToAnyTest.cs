@@ -16,9 +16,9 @@ public class ForEachToAnyTest {
         var model = tree1.GetTestSemanticModel();
         Assert.IsTrue(ForEachToAny.GetSimplifications(statements1, model, assumptions).Count() == 0);
     }
-    private void AssertOptimizes(Assumptions assumptions, string pars, string collection, string body) {
+    private void AssertOptimizes(Assumptions assumptions, string pars, string collection, string body, string newBody = null) {
         var tree1 = ("void f(" + pars + ") { foreach (var e in " + collection + ") { " + body + " }").ParseFunctionTreeFromStringUsingStandard();
-        var tree2 = ("void f(" + pars + ") { if (" + collection + ".Any()) { " + body + " }").ParseFunctionTreeFromStringUsingStandard();
+        var tree2 = ("void f(" + pars + ") { if (" + collection + ".Any()) { " + (newBody ?? body) + " }").ParseFunctionTreeFromStringUsingStandard();
         var statements1 = (ForEachStatementSyntax)tree1.TestGetParsedFunctionStatements().Single();
         var statements2 = (IfStatementSyntax)tree2.TestGetParsedFunctionStatements().Single();
         var model = tree1.GetTestSemanticModel();
@@ -26,11 +26,23 @@ public class ForEachToAnyTest {
     }
 
     [TestMethod()]
-    public void ProjectTest() {
+    public void ForEachToIfAnyTest() {
         AssertOptimizes(
             Assumptions.All,
             "IEnumerable<int> c, bool v",
             "c",
+            "v = true;");
+        AssertOptimizes(
+            Assumptions.All,
+            "IEnumerable<int> c, bool v",
+            "c",
+            "v = true; break;",
+            "v = true;");
+        AssertOptimizes(
+            Assumptions.All,
+            "IEnumerable<int> c, bool v",
+            "c",
+            "v = true; continue;",
             "v = true;");
         AssertOptimizes(
             Assumptions.All,

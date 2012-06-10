@@ -56,14 +56,14 @@ public static class Transforms {
         return Syntax.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression, operand: inside).Bracketed();
     }
 
-    public static ICodeAction MakeReplaceStatementWithManyAction(this StatementSyntax oldStatement, IEnumerable<StatementSyntax> newStatements, String desc, IDocument document) {
+    public static ReplaceAction MakeReplaceStatementWithManyAction(this StatementSyntax oldStatement, IEnumerable<StatementSyntax> newStatements, String desc) {
         var statements = newStatements.ToArray();
         if (statements.Length == 1)
-            return new ReadyCodeAction(desc, document, oldStatement, () => statements.Single());
+            return new ReplaceAction(desc, oldStatement, statements.Single());
         var b = oldStatement.Parent as BlockSyntax;
         if (b != null)
-            return new ReadyCodeAction(desc, document, b, () => b.WithStatements(b.Statements.WithItemReplacedByMany(oldStatement, statements)));
-        return new ReadyCodeAction(desc, document, oldStatement, () => statements.List().Block());
+            return new ReplaceAction(desc, b, b.WithStatements(b.Statements.WithItemReplacedByMany(oldStatement, statements)));
+        return new ReplaceAction(desc, oldStatement, statements.List().Block());
     }
     ///<summary>Returns an equivalent expression syntax with brackets added around it, if necessary.</summary>
     public static ParenthesizedExpressionSyntax Bracketed(this ExpressionSyntax e) {

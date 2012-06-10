@@ -158,10 +158,13 @@ public static class TestUtil {
         var c = "using System; using System.Linq; using System.Collections.Generic; class TEMP__WRAP__CLASS__ {" + s + "}";
         return SyntaxTree.ParseCompilationUnit(c, options: ParseOptions.Default.WithKind(SourceCodeKind.Interactive));
     }
-    public static StatementSyntax[] TestGetParsedFunctionStatements(this SyntaxTree tree) {
+    public static BlockSyntax TestGetParsedFunctionBody(this SyntaxTree tree) {
         var compUnit = (CompilationUnitSyntax)tree.GetRoot();
         var method = compUnit.DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        return method.Body.Statements.ToArray();
+        return method.Body;
+    }
+    public static StatementSyntax[] TestGetParsedFunctionStatements(this SyntaxTree tree) {
+        return tree.TestGetParsedFunctionBody().Statements.ToArray();
     }
     public static ISemanticModel GetTestSemanticModel(this SyntaxTree tree) {
         return Compilation.Create("temp")

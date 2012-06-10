@@ -14,25 +14,33 @@ using Strilbrary.Values;
 
 namespace Croslyn.CodeIssues {
     [ExportSyntaxNodeCodeIssueProvider("Croslyn", LanguageNames.CSharp, typeof(ForEachStatementSyntax))]
-    internal class ForEachToFirstLast : ICodeIssueProvider {
+    public class ForEachToFirstLast : ICodeIssueProvider {
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {
             var forLoop = (ForEachStatementSyntax)node;
             var model = document.GetSemanticModel();
-            if (forLoop.IsAnyIterationSufficient(model, Assumptions.All) == true) 
-                return null; // a more appropriate code issue handles this case
+            var simplifications = GetSimplifications(forLoop, model, Assumptions.All, cancellationToken);
+            return simplifications.Select(e => new CodeIssue(
+                CodeIssue.Severity.Warning,
+                forLoop.ForEachKeyword.Span,
+                "Single execution of 'for each' loop body is sufficient.",
+                new[] { e.AsCodeAction(document) }));
+        }
+        public static IEnumerable<ReplaceAction> GetSimplifications(ForEachStatementSyntax forLoop, ISemanticModel model, Assumptions assumptions, CancellationToken cancellationToken = default(CancellationToken)) {
+            if (forLoop.IsAnyIterationSufficient(model, assumptions) == true) 
+                yield break; // a more appropriate code issue handles this case
 
             // can the loop be replaced by its first or last iteration?
-            var isFirstSufficient = forLoop.IsFirstIterationSufficient(model, Assumptions.All) == true;
-            var isLastSufficient = forLoop.IsLastIterationSufficient(model, Assumptions.All) == true;
+            var isFirstSufficient = forLoop.IsFirstIterationSufficient(model, assumptions) == true;
+            var isLastSufficient = forLoop.IsLastIterationSufficient(model, assumptions) == true;
             var firstVsLast = isFirstSufficient ? "First"
                             : isLastSufficient ? "Last"
                             : null;
-            if (firstVsLast == null) return null;
+            if (firstVsLast == null) yield break;
 
             // do we know how to translate?
             var loopStatements = forLoop.Statement.Statements();
             var rawThenStatements = loopStatements.SkipLast(loopStatements.Last().IsIntraLoopJump() ? 1 : 0).ToArray();
-            if (rawThenStatements.Any(e => e.HasTopLevelIntraLoopJumps())) return null; // don't know how to translate jumps that aren't at the end
+            if (rawThenStatements.Any(e => e.HasTopLevelIntraLoopJumps())) yield break; // don't know how to translate jumps that aren't at the end
 
             // wrap collection items in a type with a new null value (so that a null result definitively indicates an empty collection)
             var iteratorType = ((LocalSymbol)model.GetDeclaredSymbol(forLoop)).Type;
@@ -56,14 +64,9 @@ namespace Croslyn.CodeIssues {
             };
 
             // expose as code action/issue
-            var action = forLoop.MakeReplaceStatementWithManyAction(
+            yield return forLoop.MakeReplaceStatementWithManyAction(
                 replacementStatements,
-                "Execute " + firstVsLast + " if any",
-                document);
-            return action.CodeIssues1(
-                CodeIssue.Severity.Warning,
-                forLoop.ForEachKeyword.Span,
-                firstVsLast + " execution of 'for each' loop body is sufficient.");
+                "Execute " + firstVsLast + " if any");
         }
         public static Tuple<ExpressionSyntax, Func<IdentifierNameSyntax, ExpressionSyntax>> GetNullabledQueryAndValueGetter(TypeSymbol itemType, SyntaxToken iterator, ExpressionSyntax collection) {
             if (!itemType.IsReferenceType && itemType.SpecialType != SpecialType.System_Nullable_T) {

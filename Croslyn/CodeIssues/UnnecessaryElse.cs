@@ -31,8 +31,8 @@ namespace Croslyn.CodeIssues {
                 ifStatement.Else.ElseKeyword.Span,
                 "Unnecessary else",
                 new[] { 
-                    b1 ? ifStatement.MakeReplaceStatementWithManyAction(withUnguardedElse, "Inline unnecessary else block", document) : null,
-                    b2 ? ifStatement.MakeReplaceStatementWithManyAction(withUnguardedElseFlip, "Invert and inline unnecessary else block", document) : null
+                    b1 ? ifStatement.MakeReplaceStatementWithManyAction(withUnguardedElse, "Inline unnecessary else block").AsCodeAction(document) : null,
+                    b2 ? ifStatement.MakeReplaceStatementWithManyAction(withUnguardedElseFlip, "Invert and inline unnecessary else block").AsCodeAction(document) : null
                 }.Where(e => e != null)) };
         }
 
