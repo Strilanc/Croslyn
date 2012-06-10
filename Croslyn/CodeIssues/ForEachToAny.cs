@@ -14,19 +14,26 @@ using Strilbrary.Values;
 
 namespace Croslyn.CodeIssues {
     [ExportSyntaxNodeCodeIssueProvider("Croslyn", LanguageNames.CSharp, typeof(ForEachStatementSyntax))]
-    internal class ForEachToAny : ICodeIssueProvider {
+    public class ForEachToAny : ICodeIssueProvider {
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {
             var forLoop = (ForEachStatementSyntax)node;
             var model = document.GetSemanticModel();
-
+            var simplifications = GetSimplifications(forLoop, model, Assumptions.All, cancellationToken);
+            return simplifications.Select(e => new CodeIssue(
+                CodeIssue.Severity.Warning,
+                forLoop.ForEachKeyword.Span,
+                "'For each' loop body is idempotent.",
+                new[] { e.AsCodeAction(document) }));
+        }
+        public static IEnumerable<ReplaceAction> GetSimplifications(ForEachStatementSyntax forLoop, ISemanticModel model, Assumptions assumptions, CancellationToken cancellationToken = default(CancellationToken)) {
             // loop body idempotent and independent of the iterator?
-            if (forLoop.IsAnyIterationSufficient(model, Assumptions.All) != true) return null;
+            if (forLoop.IsAnyIterationSufficient(model, assumptions) != true) yield break;
 
             // build replacement if statement, if possible
             var loopStatements = forLoop.Statement.Statements();
-            if (loopStatements.None()) return null;
+            if (loopStatements.None()) yield break;
             var ifBody = loopStatements.SkipLast(loopStatements.Last().IsIntraLoopJump() ? 1 : 0).Block();
-            if (ifBody.HasTopLevelIntraLoopJumps()) return null;
+            if (ifBody.HasTopLevelIntraLoopJumps()) yield break;
             var ifCondition = forLoop.Expression.Accessing("Any").Invoking();
             var rawReplacement = Syntax.IfStatement(
                 condition: ifCondition,
@@ -34,15 +41,10 @@ namespace Croslyn.CodeIssues {
             var replacement = rawReplacement.IncludingTriviaSurrounding(forLoop, TrivialTransforms.Placement.Around);
 
             // expose as code action/issue
-            var action = new ReadyCodeAction(
+            yield return new ReplaceAction(
                 "Execute once if any",
-                document,
                 forLoop,
-                () => replacement);
-            return action.CodeIssues1(
-                CodeIssue.Severity.Warning,
-                forLoop.ForEachKeyword.Span,
-                "'For each' loop body is idempotent.");
+                replacement);
         }
 
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxToken token, CancellationToken cancellationToken) {
