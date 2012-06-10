@@ -46,6 +46,9 @@ public static class Analysis {
                 SyntaxKind.SubtractAssignExpression,
             };
 
+    public static bool IsShortCircuitingBinaryExpression(this SyntaxKind kind) {
+        return kind == SyntaxKind.LogicalAndExpression || kind == SyntaxKind.LogicalOrExpression || kind == SyntaxKind.CoalesceExpression;
+    }
     public static bool IsShortCircuitingLogic(this SyntaxKind kind) {
         return kind == SyntaxKind.LogicalAndExpression || kind == SyntaxKind.LogicalOrExpression;
     }
@@ -108,6 +111,32 @@ public static class Analysis {
         return null;
     }
 
+    public static bool? CompleteExecutionGuaranteesChildExecutedExactlyOnce(this SyntaxNode executed, SyntaxNode child) {
+        if (child == executed) return true;
+
+        var parent = child.Parent;
+        if (parent is BlockSyntax
+            || parent is ExpressionStatementSyntax
+            || parent is ArgumentSyntax
+            || parent is ArgumentListSyntax
+            || parent is InvocationExpressionSyntax 
+            || parent is MemberAccessExpressionSyntax) {
+            return executed.CompleteExecutionGuaranteesChildExecutedExactlyOnce(parent);
+        }
+        if (parent is IfStatementSyntax) return parent == executed;
+        if (parent is WhileStatementSyntax) return null;
+        if (parent is ForEachStatementSyntax) return null;
+        if (parent is BinaryExpressionSyntax) {
+            if (IsShortCircuitingBinaryExpression(parent.Kind) && child != ((BinaryExpressionSyntax)parent).Left) return null;
+            return executed.CompleteExecutionGuaranteesChildExecutedExactlyOnce(parent);
+        }
+        if (parent is ConditionalExpressionSyntax) {
+            var c = (ConditionalExpressionSyntax)parent;
+            if (child == c.Condition) return executed.CompleteExecutionGuaranteesChildExecutedExactlyOnce(parent);
+            return null;
+        }
+        return null;
+    }
     public static bool IsGuaranteedToJumpOut(this StatementSyntax node, bool includeContinue = true) {
         Contract.Requires(node != null);
         if (node is ReturnStatementSyntax) return true;

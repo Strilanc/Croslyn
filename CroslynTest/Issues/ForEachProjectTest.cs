@@ -39,6 +39,12 @@ public class ForEachProjectTest {
             "a(e * 2);",
             "c.Select(e => e * 2)",
             "a(e)");
+        AssertOptimizes(
+            "IEnumerable<int> c, Func<int, int> p, Action<int> a",
+            "c",
+            "a(p(e));",
+            "c.Select(e => p(e))",
+            "a(e)");
 
         AssertNoOptimization(
             "IEnumerable<int> c, Func<int, bool> b, Action<int> a",

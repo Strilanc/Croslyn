@@ -35,10 +35,12 @@ namespace Croslyn.CodeIssues {
             if (singleRead == null) yield break;
 
             // safe iterator projection?
-            var projection = singleRead.Ancestors()
-                             .TakeWhile(e => e is ExpressionSyntax)
+            var guaranteedProjectionPerIteration = forLoop.Statement.CompleteExecutionGuaranteesChildExecutedExactlyOnce(singleRead);
+            var projection = singleRead.AncestorsAndSelf()
+                             .TakeWhile(e => !(e.Parent is StatementSyntax))
+                             .Where(e => e is ExpressionSyntax)
                              .Cast<ExpressionSyntax>()
-                             .TakeWhile(e => e.HasSideEffects(model).IsProbablyFalse)
+                             .TakeWhile(e =>  guaranteedProjectionPerIteration == true || e.HasSideEffects(model).IsProbablyFalse)
                              .LastOrDefault();
             if (projection == null) yield break;
             if (projection.TryEvalAlternativeComparison(singleRead, model) == true) yield break;
