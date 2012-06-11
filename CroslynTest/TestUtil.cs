@@ -24,6 +24,16 @@ public static class TestUtil {
     public static void AssertSameSyntax(this SyntaxToken n1, SyntaxToken n2) {
         Assert.IsTrue(n1.Kind == n2.Kind);
     }
+    public static void AssertSameSyntax<T>(this SeparatedSyntaxList<T> n1, SeparatedSyntaxList<T> n2) where T : SyntaxNode {
+        Assert.IsTrue(n1.Count == n2.Count);
+        for (var i = 0; i < n1.Count; i++)
+            AssertSameSyntax(n1[i], n2[i]);
+    }
+    public static void AssertSameSyntax<T>(this SyntaxList<T> n1, SyntaxList<T> n2) where T : SyntaxNode {
+        Assert.IsTrue(n1.Count == n2.Count);
+        for (var i = 0; i < n1.Count; i++)
+            AssertSameSyntax(n1[i], n2[i]);
+    }
     public static void AssertSameSyntax(this SyntaxNode n1, SyntaxNode n2) {
         if (n1 == null && n2 == null) return;
         Assert.IsTrue(n1.Kind == n2.Kind);
@@ -69,9 +79,7 @@ public static class TestUtil {
         } else if (n1 is BlockSyntax) {
             var m1 = (BlockSyntax)n1;
             var m2 = (BlockSyntax)n2;
-            Assert.IsTrue(m1.Statements.Count == m2.Statements.Count);
-            for (var i = 0; i < m1.Statements.Count; i++)
-                AssertSameSyntax(m1.Statements[i], m2.Statements[i]);
+            AssertSameSyntax(m1.Statements, m2.Statements);
         } else if (n1 is IfStatementSyntax) {
             var m1 = (IfStatementSyntax)n1;
             var m2 = (IfStatementSyntax)n2;
@@ -85,9 +93,7 @@ public static class TestUtil {
         } else if (n1 is ArgumentListSyntax) {
             var m1 = (ArgumentListSyntax)n1;
             var m2 = (ArgumentListSyntax)n2;
-            Assert.IsTrue(m1.Arguments.Count == m2.Arguments.Count);
-            for (var i = 0; i < m1.Arguments.Count; i++)
-                AssertSameSyntax(m1.Arguments[i], m2.Arguments[i]);
+            AssertSameSyntax(m1.Arguments, m2.Arguments);
         } else if (n1 is ArgumentSyntax) {
             var m1 = (ArgumentSyntax)n1;
             var m2 = (ArgumentSyntax)n2;
@@ -110,9 +116,7 @@ public static class TestUtil {
         } else if (n1 is ParameterListSyntax) {
             var m1 = (ParameterListSyntax)n1;
             var m2 = (ParameterListSyntax)n2;
-            Assert.IsTrue(m1.Parameters.Count == m2.Parameters.Count);
-            for (var i = 0; i < m1.Parameters.Count; i++)
-                AssertSameSyntax(m1.Parameters[i], m2.Parameters[i]);
+            AssertSameSyntax(m1.Parameters, m2.Parameters);
         } else if (n1 is ParameterSyntax) {
             var m1 = (ParameterSyntax)n1;
             var m2 = (ParameterSyntax)n2;
@@ -127,10 +131,7 @@ public static class TestUtil {
             var m1 = (VariableDeclarationSyntax)n1;
             var m2 = (VariableDeclarationSyntax)n2;
             AssertSameSyntax(m1.Type, m2.Type);
-            Assert.IsTrue(m1.Variables.Count == m2.Variables.Count);
-            for (var i = 0; i < m1.Variables.Count; i++) {
-                AssertSameSyntax(m1.Variables[i], m2.Variables[i]);
-            }
+            AssertSameSyntax(m1.Variables, m2.Variables);
         } else if (n1 is VariableDeclaratorSyntax) {
             var m1 = (VariableDeclaratorSyntax)n1;
             var m2 = (VariableDeclaratorSyntax)n2;
@@ -165,26 +166,25 @@ public static class TestUtil {
             var m1 = (ArrayTypeSyntax)n1;
             var m2 = (ArrayTypeSyntax)n2;
             AssertSameSyntax(m1.ElementType, m2.ElementType);
-            Assert.IsTrue(m1.RankSpecifiers.Count == m2.RankSpecifiers.Count);
-            for (var i = 0; i < m1.RankSpecifiers.Count; i++) {
-                AssertSameSyntax(m1.RankSpecifiers[i], m2.RankSpecifiers[i]);
-            }
+            AssertSameSyntax(m1.RankSpecifiers, m2.RankSpecifiers);
         } else if (n1 is ArrayRankSpecifierSyntax) {
             var m1 = (ArrayRankSpecifierSyntax)n1;
             var m2 = (ArrayRankSpecifierSyntax)n2;
-            Assert.IsTrue(m1.Sizes.Count == m2.Sizes.Count);
-            for (var i = 0; i < m1.Sizes.Count; i++) {
-                AssertSameSyntax(m1.Sizes[i], m2.Sizes[i]);
-            }
+            AssertSameSyntax(m1.Sizes, m2.Sizes);
         } else if (n1 is OmittedArraySizeExpressionSyntax) {
             Assert.IsTrue(n2 is OmittedArraySizeExpressionSyntax);
         } else if (n1 is InitializerExpressionSyntax) {
             var m1 = (InitializerExpressionSyntax)n1;
             var m2 = (InitializerExpressionSyntax)n2;
-            Assert.IsTrue(m1.Expressions.Count == m2.Expressions.Count);
-            for (var i = 0; i < m1.Expressions.Count; i++) {
-                AssertSameSyntax(m1.Expressions[i], m2.Expressions[i]);
-            }
+            AssertSameSyntax(m1.Expressions, m2.Expressions);
+        } else if (n1 is ForStatementSyntax) {
+            var m1 = (ForStatementSyntax)n1;
+            var m2 = (ForStatementSyntax)n2;
+            AssertSameSyntax(m1.Condition, m2.Condition);
+            AssertSameSyntax(m1.Declaration, m2.Declaration);
+            AssertSameSyntax(m1.Statement, m2.Statement);
+            AssertSameSyntax(m1.Initializers, m2.Initializers);
+            AssertSameSyntax(m1.Incrementors, m2.Incrementors);
         } else {
             throw new NotImplementedException();
         }

@@ -11,37 +11,36 @@ using Strilbrary.Collections;
 
 [TestClass()]
 public class InferableTypeTest {
-    private void AssertDoesNotOptimizeD(string pars, string declaration) {
-        var tree1 = ("void f(" + pars + ") { " + declaration + "; }").ParseFunctionTreeFromStringUsingStandard();
-        var declarationStatement = (LocalDeclarationStatementSyntax)tree1.TestGetParsedFunctionStatements().Single();
+    private void AssertDoesNotOptimize<T>(string pars, string declaration, Func<T, ISemanticModel, Assumptions, IEnumerable<ReplaceAction>> f) where T : SyntaxNode {
+        var tree = ("void f(" + pars + ") { " + declaration + "; }").ParseFunctionTreeFromStringUsingStandard();
+        var body = tree.TestGetParsedFunctionBody();
+        var target = body.DescendantNodes().OfType<T>().Single();
+        var model = tree.GetTestSemanticModel();
+        Assert.IsTrue(f(target, model, Assumptions.All).None());
+    }
+    private void AssertOptimizes<T>(string pars, string bodyText, string newBodyText, Func<T, ISemanticModel, Assumptions, IEnumerable<ReplaceAction>> f) where T : SyntaxNode {
+        var tree1 = ("void f(" + pars + ") { " + bodyText + "; }").ParseFunctionTreeFromStringUsingStandard();
+        var tree2 = ("void f(" + pars + ") { " + newBodyText + "; }").ParseFunctionTreeFromStringUsingStandard();
+        var body = tree1.TestGetParsedFunctionBody();
+        var body2 = tree2.TestGetParsedFunctionBody();
+        var target = body.DescendantNodes().OfType<T>().Single();
         var model = tree1.GetTestSemanticModel();
-        Assert.IsTrue(InferableType.GetSimplifications(declarationStatement, model, Assumptions.All).None());
+        var s = f(target, model, Assumptions.All).Single();
+        var newBody = body.ReplaceNode(s.OldNode, s.NewNode);
+        body2.AssertSameSyntax(newBody);
+    }
+
+    private void AssertDoesNotOptimizeD(string pars, string declaration) {
+        AssertDoesNotOptimize<VariableDeclarationSyntax>(pars, declaration, (a, b, c) => InferableType.GetSimplifications(a, b, c));
     }
     private void AssertDoesNotOptimizeL(string pars, string declaration) {
-        var tree1 = ("void f(" + pars + ") { " + declaration + " }").ParseFunctionTreeFromStringUsingStandard();
-        var loop = (ForEachStatementSyntax)tree1.TestGetParsedFunctionStatements().Single();
-        var model = tree1.GetTestSemanticModel();
-        Assert.IsTrue(InferableType.GetSimplifications(loop, model, Assumptions.All).None());
+        AssertDoesNotOptimize<ForEachStatementSyntax>(pars, declaration, (a, b, c) => InferableType.GetSimplifications(a, b, c));
     }
     private void AssertOptimizesD(string pars, string declaration, string newBody) {
-        var tree1 = ("void f(" + pars + ") { " + declaration + "; }").ParseFunctionTreeFromStringUsingStandard();
-        var tree2 = ("void f(" + pars + ") { " + newBody + "; }").ParseFunctionTreeFromStringUsingStandard();
-        var declarationStatement = (LocalDeclarationStatementSyntax)tree1.TestGetParsedFunctionStatements().Single();
-        var declarationStatement2 = (LocalDeclarationStatementSyntax)tree2.TestGetParsedFunctionStatements().Single();
-        var model = tree1.GetTestSemanticModel();
-        var s = InferableType.GetSimplifications(declarationStatement, model, Assumptions.All).Single();
-        var nb = declarationStatement.ReplaceNode(s.OldNode, s.NewNode);
-        nb.AssertSameSyntax(declarationStatement2);
+        AssertOptimizes<VariableDeclarationSyntax>(pars, declaration, newBody, (a, b, c) => InferableType.GetSimplifications(a, b, c));
     }
     private void AssertOptimizesL(string pars, string declaration, string newBody) {
-        var tree1 = ("void f(" + pars + ") { " + declaration + " }").ParseFunctionTreeFromStringUsingStandard();
-        var tree2 = ("void f(" + pars + ") { " + newBody + " }").ParseFunctionTreeFromStringUsingStandard();
-        var loop = (ForEachStatementSyntax)tree1.TestGetParsedFunctionStatements().Single();
-        var loop2 = (ForEachStatementSyntax)tree2.TestGetParsedFunctionStatements().Single();
-        var model = tree1.GetTestSemanticModel();
-        var s = InferableType.GetSimplifications(loop, model, Assumptions.All).Single();
-        var nb = loop.ReplaceNode(s.OldNode, s.NewNode);
-        nb.AssertSameSyntax(loop2);
+        AssertOptimizes<ForEachStatementSyntax>(pars, declaration, newBody, (a, b, c) => InferableType.GetSimplifications(a, b, c));
     }
 
     [TestMethod()]
@@ -78,6 +77,14 @@ public class InferableTypeTest {
             "",
             "int[] x = new[] {0, 1}",
             "var x = new[] {0, 1}");
+        AssertOptimizesD(
+            "object r",
+            "for (object s = r; s != null; s = null);",
+            "for (var s = r; s != null; s = null);");
+        AssertOptimizesD(
+            "object r",
+            "for (int[] x = new int[] {0, 1}; x != null; x = null);",
+            "for (var x = new int[] {0, 1}; x != null; x = null);");
 
         AssertDoesNotOptimizeD(
             "",
@@ -100,6 +107,12 @@ public class InferableTypeTest {
         AssertDoesNotOptimizeD(
             "",
             "uint c = 0");
+        AssertDoesNotOptimizeD(
+            "",
+            "for (uint c = 0;;);");
+        AssertDoesNotOptimizeD(
+            "",
+            "for (int c = 0, c2 = 0;;);");
 
         AssertOptimizesL(
             "",

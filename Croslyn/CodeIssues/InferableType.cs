@@ -14,10 +14,10 @@ using Strilbrary.Values;
 
 namespace Croslyn.CodeIssues {
     /// <summary>Detects locals with more scope than necessary.</summary>
-    [ExportSyntaxNodeCodeIssueProvider("Croslyn", LanguageNames.CSharp, typeof(LocalDeclarationStatementSyntax), typeof(ForEachStatementSyntax))]
+    [ExportSyntaxNodeCodeIssueProvider("Croslyn", LanguageNames.CSharp, typeof(VariableDeclarationSyntax), typeof(ForEachStatementSyntax))]
     public class InferableType : ICodeIssueProvider {
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {
-            var declaration = node as LocalDeclarationStatementSyntax;
+            var declaration = node as VariableDeclarationSyntax;
             var loop = node as ForEachStatementSyntax;
             var model = document.GetSemanticModel();
             var assume = Assumptions.All;
@@ -26,7 +26,7 @@ namespace Croslyn.CodeIssues {
                 foreach (var r in GetSimplifications(declaration, model, assume, cancellationToken)) {
                     yield return new CodeIssue(
                         CodeIssue.Severity.Warning,
-                        r.SuggestedSpan ?? declaration.Declaration.Type.Span,
+                        r.SuggestedSpan ?? declaration.Type.Span,
                         "Type of local variable can be infered.",
                         new[] { r.AsCodeAction(document) });
                 }
@@ -40,15 +40,15 @@ namespace Croslyn.CodeIssues {
                 }
             }
         }
-        public static IEnumerable<ReplaceAction> GetSimplifications(LocalDeclarationStatementSyntax declaration, ISemanticModel model, Assumptions assume, CancellationToken cancellationToken = default(CancellationToken)) {
-            if (declaration.Declaration.Variables.Count != 1) yield break;
-            var v = declaration.Declaration.Variables.Single();
+        public static IEnumerable<ReplaceAction> GetSimplifications(VariableDeclarationSyntax declaration, ISemanticModel model, Assumptions assume, CancellationToken cancellationToken = default(CancellationToken)) {
+            if (declaration.Variables.Count != 1) yield break;
+            var v = declaration.Variables.Single();
             if (v.Initializer == null) yield break;
-            if (declaration.Declaration.Type.IsVar) yield break;
-            var declaredType = model.GetTypeInfo(declaration.Declaration.Type);
+            if (declaration.Type.IsVar) yield break;
+            var declaredType = model.GetTypeInfo(declaration.Type);
             var valueType = model.GetTypeInfo(v.Initializer.Value);
             if (!declaredType.Equals(valueType)) yield break;
-            yield return new ReplaceAction("Use 'var'", declaration.Declaration.Type, Syntax.IdentifierName("var"));
+            yield return new ReplaceAction("Use 'var'", declaration.Type, Syntax.IdentifierName("var"));
         }
         public static IEnumerable<ReplaceAction> GetSimplifications(ForEachStatementSyntax loop, ISemanticModel model, Assumptions assume, CancellationToken cancellationToken = default(CancellationToken)) {
             if (loop.Type.IsVar) yield break;
