@@ -13,6 +13,7 @@ using System.Diagnostics.Contracts;
 using Strilbrary.Values;
 
 namespace Croslyn.CodeIssues {
+    /// <summary>Replaces if statements with conditional expressions.</summary>
     [ExportSyntaxNodeCodeIssueProvider("Croslyn", LanguageNames.CSharp, typeof(IfStatementSyntax))]
     internal class ConditionableIfStatement : ICodeIssueProvider {
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {

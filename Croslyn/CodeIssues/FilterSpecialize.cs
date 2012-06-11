@@ -13,6 +13,10 @@ using System.Diagnostics.Contracts;
 using Strilbrary.Values;
 
 namespace Croslyn.CodeIssues {
+    /// <summary>
+    /// Removes unnecessary Linq 'Where's when they are followed by First/Last/Any/etc.
+    /// For example, 'c.Where(f).Any()' becomes 'c.Any(f)'.
+    /// </summary>
     [ExportSyntaxNodeCodeIssueProvider("Croslyn", LanguageNames.CSharp, typeof(InvocationExpressionSyntax))]
     public class FilterSpecialize : ICodeIssueProvider {
         private static readonly string[] Specializations = new[] { "First", "FirstOrDefault", "Last", "LastOrDefault", "Any" };
