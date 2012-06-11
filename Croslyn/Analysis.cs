@@ -377,6 +377,23 @@ public static class Analysis {
         if (v1 == null || v2 == null) return null;
         return true;
     }
+    private static readonly SpecialType[] _SpecialTypesWithSafeOperators = new[] {
+        SpecialType.System_SByte,
+        SpecialType.System_Int16,
+        SpecialType.System_Int32,
+        SpecialType.System_Int64,
+        SpecialType.System_Byte,
+        SpecialType.System_UInt16,
+        SpecialType.System_UInt32,
+        SpecialType.System_UInt64,
+        SpecialType.System_Char,
+        SpecialType.System_Boolean,
+        SpecialType.System_DateTime,
+        SpecialType.System_Decimal,
+        SpecialType.System_Single,
+        SpecialType.System_Double,
+        SpecialType.System_String,
+    };
     public static bool? HasSideEffects(this ExpressionSyntax expression, ISemanticModel model, Assumptions assume) {
         if (expression is IdentifierNameSyntax) return false;
         if (expression is LiteralExpressionSyntax) return false;
@@ -406,15 +423,18 @@ public static class Analysis {
             };
             var unsafeOperators = new[] { SyntaxKind.PreDecrementExpression, SyntaxKind.PreIncrementExpression };
             if (unsafeOperators.Contains(u.Kind)) return true;
-            var op = assume.OperatorsHaveNoSideEffects && shouldBeSafeOperators.Contains(u.Kind)
+            var ns = assume.OperatorsHaveNoSideEffects || _SpecialTypesWithSafeOperators.Contains(model.GetTypeInfo(u.Operand).Type.SpecialType);
+            var op = ns && shouldBeSafeOperators.Contains(u.Kind)
                    ? (bool?)false
                    : null;
             return op.Max(u.Operand.HasSideEffects(model, assume));
         }
         if (expression is BinaryExpressionSyntax) {
             var b = (BinaryExpressionSyntax)expression;
-            if (AssignmentOperatorKinds.Contains(b.Kind)) return true;
-            var op = assume.OperatorsHaveNoSideEffects && ProbablySafeBinaryOperators.Contains(b.Kind) 
+            if (AssignmentOperatorKinds.Contains(b.Kind)) return null; //probably true, but some cases like x += 0 are fine.
+            var ns = assume.OperatorsHaveNoSideEffects 
+                || new[] {b.Left, b.Right}.All(e => _SpecialTypesWithSafeOperators.Contains(model.GetTypeInfo(e).Type.SpecialType));
+            var op = ns && ProbablySafeBinaryOperators.Contains(b.Kind) 
                    ? (bool?)false
                    : null;
             return new[] { op, b.Left.HasSideEffects(model, assume), b.Right.HasSideEffects(model, assume) }.Max();

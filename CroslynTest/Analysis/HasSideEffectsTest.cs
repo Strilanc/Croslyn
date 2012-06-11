@@ -30,23 +30,48 @@ public class HasSideEffectsTest {
         Assert.IsTrue(Effects("dynamic x", "~!-x + x - x / x * x % x & x && x || x | x ^ x == x != x > x >= x < x <= x ?? x << x >> x", Assumptions.All) == false);
         Assert.IsTrue(Effects("dynamic x", "~!-x + x - x / x * x % x & x && x || x | x ^ x == x != x > x >= x < x <= x ?? x << x >> x", Assumptions.None) == null);
 
-        //assignments
+        // know operators for special types are safe without assumptions
+        Assert.IsTrue(Effects("dynamic x", "x+1", Assumptions.All) == false);
+        Assert.IsTrue(Effects("dynamic x", "x+1", Assumptions.None) == null);
+        Assert.IsTrue(Effects("int x", "x+1", Assumptions.None) == false);
+        Assert.IsTrue(Effects("byte x", "x+1", Assumptions.None) == false);
+        Assert.IsTrue(Effects("uint x", "x+1", Assumptions.None) == false);
+        Assert.IsTrue(Effects("short x", "x+1", Assumptions.None) == false);
+        Assert.IsTrue(Effects("ushort x", "x+1", Assumptions.None) == false);
+        Assert.IsTrue(Effects("sbyte x", "x+1", Assumptions.None) == false);
+        Assert.IsTrue(Effects("long x", "x+1", Assumptions.None) == false);
+        Assert.IsTrue(Effects("ulong x", "x+1", Assumptions.None) == false);
+        Assert.IsTrue(Effects("decimal x", "x+1", Assumptions.None) == false);
+        Assert.IsTrue(Effects("string x", "x+1", Assumptions.None) == false);
+        Assert.IsTrue(Effects("double x", "x+1", Assumptions.None) == false);
+
+        // assignments
         Assert.IsTrue(Effects("dynamic x", "x--") == true);
         Assert.IsTrue(Effects("dynamic x", "x++") == true);
         Assert.IsTrue(Effects("dynamic x", "++x") == true);
         Assert.IsTrue(Effects("dynamic x", "--x") == true);
-        Assert.IsTrue(Effects("dynamic x", "x += 1") == true);
-        Assert.IsTrue(Effects("dynamic x", "x -= 1") == true);
-        Assert.IsTrue(Effects("dynamic x", "x *= 1") == true);
-        Assert.IsTrue(Effects("dynamic x", "x /= 1") == true);
-        Assert.IsTrue(Effects("dynamic x", "x *= 1") == true);
-        Assert.IsTrue(Effects("dynamic x", "x %= 1") == true);
-        Assert.IsTrue(Effects("dynamic x", "x &= 1") == true);
-        Assert.IsTrue(Effects("dynamic x", "x |= 1") == true);
-        Assert.IsTrue(Effects("dynamic x", "x ^= 1") == true);
-        Assert.IsTrue(Effects("dynamic x", "x <<= 1") == true);
-        Assert.IsTrue(Effects("dynamic x", "x >>= 1") == true);
-        Assert.IsTrue(Effects("dynamic x", "x = 1") == true);
+        Assert.IsTrue(Effects("dynamic x", "x += 1") != false);
+        Assert.IsTrue(Effects("dynamic x", "x -= 1") != false);
+        Assert.IsTrue(Effects("dynamic x", "x *= 2") != false);
+        Assert.IsTrue(Effects("dynamic x", "x /= 2") != false);
+        Assert.IsTrue(Effects("dynamic x", "x *= 1") != false);
+        Assert.IsTrue(Effects("dynamic x", "x %= 1") != false);
+        Assert.IsTrue(Effects("dynamic x", "x &= 1") != false);
+        Assert.IsTrue(Effects("dynamic x", "x |= 1") != false);
+        Assert.IsTrue(Effects("dynamic x", "x ^= 1") != false);
+        Assert.IsTrue(Effects("dynamic x", "x <<= 1") != false);
+        Assert.IsTrue(Effects("dynamic x", "x >>= 1") != false);
+        Assert.IsTrue(Effects("dynamic x", "x = 1") != false);
+        
+        // assignments with no effect
+        Assert.IsTrue(Effects("dynamic x", "x += 0") != true);
+        Assert.IsTrue(Effects("dynamic x", "x -= 0") != true);
+        Assert.IsTrue(Effects("dynamic x", "x *= 1") != true);
+        Assert.IsTrue(Effects("dynamic x", "x /= 1") != true);
+        Assert.IsTrue(Effects("dynamic x", "x <<= 0") != true);
+        Assert.IsTrue(Effects("dynamic x", "x >>= 0") != true);
+        Assert.IsTrue(Effects("dynamic x", "x |= 0") != true);
+        Assert.IsTrue(Effects("dynamic x", "x ^= 0") != true);
 
         Assert.IsTrue(Effects("bool b, bool t, bool f", "if (b ? t : f);") == false);
         Assert.IsTrue(Effects("bool b, bool t, Func<bool> f", "if (b ? t : f());") == null);
