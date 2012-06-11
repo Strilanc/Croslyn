@@ -30,7 +30,7 @@ public class OverexposedLocalTest {
     }
 
     [TestMethod()]
-    public void FilterTest() {
+    public void TestOverexposedLocal() {
         AssertOptimizes(
             "Action a",
             "int c; a(); c = 0;",

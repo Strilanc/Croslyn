@@ -152,6 +152,39 @@ public static class TestUtil {
             AssertSameSyntax(m1.ArgumentList, m2.ArgumentList);
             AssertSameSyntax(m1.Initializer, m2.Initializer);
             AssertSameSyntax(m1.Type, m2.Type);
+        } else if (n1 is ImplicitArrayCreationExpressionSyntax) {
+            var m1 = (ImplicitArrayCreationExpressionSyntax)n1;
+            var m2 = (ImplicitArrayCreationExpressionSyntax)n2;
+            AssertSameSyntax(m1.Initializer, m2.Initializer);
+        } else if (n1 is ArrayCreationExpressionSyntax) {
+            var m1 = (ArrayCreationExpressionSyntax)n1;
+            var m2 = (ArrayCreationExpressionSyntax)n2;
+            AssertSameSyntax(m1.Type, m2.Type);
+            AssertSameSyntax(m1.Initializer, m2.Initializer);
+        } else if (n1 is ArrayTypeSyntax) {
+            var m1 = (ArrayTypeSyntax)n1;
+            var m2 = (ArrayTypeSyntax)n2;
+            AssertSameSyntax(m1.ElementType, m2.ElementType);
+            Assert.IsTrue(m1.RankSpecifiers.Count == m2.RankSpecifiers.Count);
+            for (var i = 0; i < m1.RankSpecifiers.Count; i++) {
+                AssertSameSyntax(m1.RankSpecifiers[i], m2.RankSpecifiers[i]);
+            }
+        } else if (n1 is ArrayRankSpecifierSyntax) {
+            var m1 = (ArrayRankSpecifierSyntax)n1;
+            var m2 = (ArrayRankSpecifierSyntax)n2;
+            Assert.IsTrue(m1.Sizes.Count == m2.Sizes.Count);
+            for (var i = 0; i < m1.Sizes.Count; i++) {
+                AssertSameSyntax(m1.Sizes[i], m2.Sizes[i]);
+            }
+        } else if (n1 is OmittedArraySizeExpressionSyntax) {
+            Assert.IsTrue(n2 is OmittedArraySizeExpressionSyntax);
+        } else if (n1 is InitializerExpressionSyntax) {
+            var m1 = (InitializerExpressionSyntax)n1;
+            var m2 = (InitializerExpressionSyntax)n2;
+            Assert.IsTrue(m1.Expressions.Count == m2.Expressions.Count);
+            for (var i = 0; i < m1.Expressions.Count; i++) {
+                AssertSameSyntax(m1.Expressions[i], m2.Expressions[i]);
+            }
         } else {
             throw new NotImplementedException();
         }
