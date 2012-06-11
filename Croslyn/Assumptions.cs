@@ -10,15 +10,17 @@ using Strilbrary.Collections;
 using Roslyn.Compilers;
 
 public struct Assumptions {
-    public static readonly Assumptions All = new Assumptions(true, true, true);
+    public static readonly Assumptions All = new Assumptions(true, true, true, true);
     public static readonly Assumptions None = default(Assumptions);
 
     public readonly bool PropertyGettersHaveNoSideEffects;
     public readonly bool OperatorsHaveNoSideEffects;
     public readonly bool IterationHasNoSideEffects;
-    public Assumptions(bool propertyGettersHaveNoSideEffects, bool operatorsHaveNoSideEffects, bool iterationHasNoSideEffects) {
+    public readonly bool ConstructorsHaveNoSideEffects;
+    public Assumptions(bool propertyGettersHaveNoSideEffects, bool operatorsHaveNoSideEffects, bool iterationHasNoSideEffects, bool constructorsHaveNoSideEffects) {
         this.PropertyGettersHaveNoSideEffects = propertyGettersHaveNoSideEffects;
         this.OperatorsHaveNoSideEffects = operatorsHaveNoSideEffects;
         this.IterationHasNoSideEffects = iterationHasNoSideEffects;
+        this.ConstructorsHaveNoSideEffects = constructorsHaveNoSideEffects;
     }
 }

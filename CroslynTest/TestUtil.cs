@@ -144,6 +144,14 @@ public static class TestUtil {
             var m1 = (PredefinedTypeSyntax)n1;
             var m2 = (PredefinedTypeSyntax)n2;
             Assert.IsTrue(m1.PlainName == m2.PlainName);
+        } else if (n1 is EmptyStatementSyntax) {
+            Assert.IsTrue(n2 is EmptyStatementSyntax);
+        } else if (n1 is ObjectCreationExpressionSyntax) {
+            var m1 = (ObjectCreationExpressionSyntax)n1;
+            var m2 = (ObjectCreationExpressionSyntax)n2;
+            AssertSameSyntax(m1.ArgumentList, m2.ArgumentList);
+            AssertSameSyntax(m1.Initializer, m2.Initializer);
+            AssertSameSyntax(m1.Type, m2.Type);
         } else {
             throw new NotImplementedException();
         }

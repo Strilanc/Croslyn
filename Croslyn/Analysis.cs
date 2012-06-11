@@ -446,6 +446,11 @@ public static class Analysis {
             var e = (ConditionalExpressionSyntax)expression;
             return new[] { e.Condition, e.WhenTrue, e.WhenFalse }.Select(x => x.HasSideEffects(model, assume)).Max();
         }
+        if (expression is ObjectCreationExpressionSyntax) {
+            if (!assume.ConstructorsHaveNoSideEffects) return null;
+            var e = (ObjectCreationExpressionSyntax)expression;
+            return e.ArgumentList.Arguments.Select(a => a.Expression.HasSideEffects(model, assume)).Max();
+        }
         return null;
     }
     public static bool? HasSideEffects(this StatementSyntax statement, ISemanticModel model, Assumptions assume) {

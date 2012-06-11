@@ -101,5 +101,10 @@ public class OverexposedLocalTest {
             "Action a, int f",
             "int c = f; { a(); { a(); a(); c = 1; a(); } }",
             new[] {"{ int c = f; a(); { a(); a(); c = 1; a(); } }"});
+        
+        AssertOptimizes(
+            "",
+            "var L = new List<int>(); ; L.Add(1); }",
+            new[] { "; var L = new List<int>(); L.Add(1); }" });
     }
 }
