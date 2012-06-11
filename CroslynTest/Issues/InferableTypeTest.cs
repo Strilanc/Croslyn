@@ -70,6 +70,14 @@ public class InferableTypeTest {
             "",
             "int c = 0",
             "var c = 0");
+        AssertOptimizesD(
+            "",
+            "int[] x = new[] {0, 1}",
+            "var x = new int[] {0, 1}");
+        AssertOptimizesD(
+            "",
+            "int[] x = new[] {0, 1}",
+            "var x = new[] {0, 1}");
 
         AssertDoesNotOptimizeD(
             "",

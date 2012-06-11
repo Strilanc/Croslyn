@@ -47,7 +47,7 @@ namespace Croslyn.CodeIssues {
             if (declaration.Declaration.Type.IsVar) yield break;
             var declaredType = model.GetTypeInfo(declaration.Declaration.Type);
             var valueType = model.GetTypeInfo(v.Initializer.Value);
-            if (declaredType.Type != valueType.Type) yield break;
+            if (!declaredType.Equals(valueType)) yield break;
             yield return new ReplaceAction("Use 'var'", declaration.Declaration.Type, Syntax.IdentifierName("var"));
         }
         public static IEnumerable<ReplaceAction> GetSimplifications(ForEachStatementSyntax loop, ISemanticModel model, Assumptions assume, CancellationToken cancellationToken = default(CancellationToken)) {
@@ -64,7 +64,7 @@ namespace Croslyn.CodeIssues {
             if (enumerableTypes.Count() != 1) yield break;
             var itemType = enumerableTypes.Single().TypeArguments.Single();
 
-            if (declaredType != itemType) yield break;
+            if (!declaredType.Equals(itemType)) yield break;
             yield return new ReplaceAction("Use 'var'", loop.Type, Syntax.IdentifierName("var"));
         }
 
