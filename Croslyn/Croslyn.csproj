@@ -111,7 +111,6 @@
     <Compile Include="CodeIssues\UnnecessaryElse.cs" />
     <Compile Include="Assumptions.cs" />
     <Compile Include="ReplaceAction.cs" />
-    <Compile Include="TentativeBool.cs" />
     <Compile Include="SyntaxWithEx.cs" />
     <Compile Include="Refactorings\InlineLargeGuardedBranches.cs" />
     <Compile Include="Refactorings\LopsidedTerminalIfsToEarlyReturnGuards.cs" />

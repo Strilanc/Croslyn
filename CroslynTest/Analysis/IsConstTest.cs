@@ -23,7 +23,7 @@ public class IsConstTest {
             }".ParseFunctionTreeFromString();
         foreach (var statement in tree.TestGetParsedFunctionStatements()) {
             var rhs = ((statement as ExpressionStatementSyntax).Expression as BinaryExpressionSyntax).Right;
-            Assert.AreEqual(TentativeBool.True, rhs.IsConst(tree.GetTestSemanticModel()));
+            Assert.AreEqual(true, rhs.IsConst(tree.GetTestSemanticModel()));
         }
     }
     [TestMethod()]
@@ -35,7 +35,7 @@ public class IsConstTest {
             }".ParseFunctionTreeFromString();
         foreach (var statement in tree.TestGetParsedFunctionStatements()) {
             var rhs = ((statement as ExpressionStatementSyntax).Expression as BinaryExpressionSyntax).Right;
-            Assert.AreEqual(TentativeBool.True, rhs.IsConst(tree.GetTestSemanticModel()));
+            Assert.AreEqual(true, rhs.IsConst(tree.GetTestSemanticModel()));
         }
     }
     [TestMethod()]
