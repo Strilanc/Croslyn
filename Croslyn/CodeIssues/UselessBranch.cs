@@ -17,7 +17,8 @@ namespace Croslyn.CodeIssues {
     internal class UselessBranch : ICodeIssueProvider {
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {
             var statement = (IfStatementSyntax)node;
-            var newStatement = statement.DropEmptyBranchesIfApplicable();
+            var model = document.GetSemanticModel();
+            var newStatement = statement.DropEmptyBranchesIfApplicable(Assumptions.All, model);
             if (newStatement == statement) return null;
             
             var r = new ReadyCodeAction("Omit useless code", document, statement, () => newStatement);

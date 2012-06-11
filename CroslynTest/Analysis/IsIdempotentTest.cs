@@ -10,53 +10,44 @@ using Roslyn.Compilers;
 
 [TestClass()]
 public class IsIdempotentTest {
-    [TestMethod()]
-    public void SimpleAssign() {
-        var tree = @"
-            void f(int x) {
-                x = 1;
-            }".ParseFunctionTreeFromString();
-        var statement = tree.TestGetParsedFunctionStatements().Single();
-        Assert.AreEqual(TentativeBool.True, statement.IsIdempotent(tree.GetTestSemanticModel()));
+    private bool? Idempotence(string pars, string statement, Assumptions? assume = null) {
+        var tree = ("void f(" + pars + ") {" + statement + "}").ParseFunctionTreeFromString();
+        var statementN = tree.TestGetParsedFunctionBody();
+        return statementN.IsIdempotent(tree.GetTestSemanticModel(), assume ?? Assumptions.All);
     }
     [TestMethod()]
-    public void OpAssign() {
-        var tree = @"
-            void f(int x) {
-                x += 1;
-                x -= 1;
-                x *= 1;
-                x /= 1;
-                x &= 1;
-                x %= 1;
-                x |= 1;
-                x ^= 1;
-            }".ParseFunctionTreeFromString();
-        foreach (var statement in tree.TestGetParsedFunctionStatements())
-            Assert.AreEqual(TentativeBool.ProbablyFalse, statement.IsIdempotent(tree.GetTestSemanticModel()));
-    }
-    [TestMethod()]
-    public void Drain() {
-        var tree = @"
-            void f(int x1, int x2) {
-                {
-                    x1 = x2;
-                    x2 = 0;
-                }
-            }".ParseFunctionTreeFromString();
-        var statement = tree.TestGetParsedFunctionStatements().Single();
-        Assert.IsTrue(!statement.IsIdempotent(tree.GetTestSemanticModel()).IsProbablyTrue);
-    }
-    [TestMethod()]
-    public void MultiAssign() {
-        var tree = @"
-            void f(int x1, int x2) {
-                {
-                    x1 = 0;
-                    x2 = 0;
-                }
-            }".ParseFunctionTreeFromString();
-        var statement = tree.TestGetParsedFunctionStatements().Single();
-        Assert.IsTrue(statement.IsIdempotent(tree.GetTestSemanticModel()).IsProbablyTrue);
+    public void TestIsIdempotent() {
+        // assignment
+        Assert.IsTrue(Idempotence("int x", "x = 1;") == true);
+
+        // non-idempotent adjustments
+        Assert.IsTrue(Idempotence("int x", "x += 1;") != true);
+        Assert.IsTrue(Idempotence("int x", "x -= 1;") != true);
+        Assert.IsTrue(Idempotence("int x", "x *= 2;") != true);
+        Assert.IsTrue(Idempotence("int x", "x /= 2;") != true);
+        Assert.IsTrue(Idempotence("int x", "x ^= 1;") != true);
+        Assert.IsTrue(Idempotence("int x", "x >>= 1;") != true);
+        Assert.IsTrue(Idempotence("int x", "x <<= 1;") != true);
+        Assert.IsTrue(Idempotence("int x", "x++;") != true);
+        Assert.IsTrue(Idempotence("int x", "x--;") != true);
+        Assert.IsTrue(Idempotence("int x", "++x;") != true);
+        Assert.IsTrue(Idempotence("int x", "--x;") != true);
+
+        // idempotent adjustments
+        Assert.IsTrue(Idempotence("int x", "x >>= 0;") != false);
+        Assert.IsTrue(Idempotence("int x", "x <<= 0;") != false);
+        Assert.IsTrue(Idempotence("int x", "x *= 0;") != false);
+        Assert.IsTrue(Idempotence("int x", "x *= 1;") != false);
+        Assert.IsTrue(Idempotence("int x", "x /= 1;") != false);
+        Assert.IsTrue(Idempotence("int x", "x |= 1;") != false);
+        Assert.IsTrue(Idempotence("int x", "x &= 1;") != false);
+        Assert.IsTrue(Idempotence("int x", "x %= 1;") != false);
+        Assert.IsTrue(Idempotence("int x", "x %= 23;") != false);
+
+        //drain
+        Assert.IsTrue(Idempotence("int x1, int x2", "x1 = x2; x2 = 0;") != true);
+
+        //multi-assign
+        Assert.IsTrue(Idempotence("int x1, int x2", "x1 = 0; x2 = 0;") == true);
     }
 }

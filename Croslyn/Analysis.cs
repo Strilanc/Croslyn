@@ -74,18 +74,18 @@ public static class Analysis {
                .Where(e => e.Identifier.ValueText == localVar.ValueText);
     }
 
-    public static bool? TryEvalAlternativeComparison(this ExpressionSyntax expression, ExpressionSyntax other, ISemanticModel model) {
+    public static bool? TryEvalAlternativeComparison(this ExpressionSyntax expression, ExpressionSyntax other, ISemanticModel model, Assumptions assume) {
         var val1 = expression.TryGetConstBoolValue();
         var val2 = other.TryGetConstBoolValue();
         if (val1.HasValue != val2.HasValue) return null;
         if (val1.HasValue) return val1.Value == val2.Value;
 
-        if (expression is ParenthesizedExpressionSyntax) return ((ParenthesizedExpressionSyntax)expression).Expression.TryEvalAlternativeComparison(other, model);
-        if (other is ParenthesizedExpressionSyntax) return expression.TryEvalAlternativeComparison(((ParenthesizedExpressionSyntax)other).Expression, model);
-        if (expression.Kind == SyntaxKind.LogicalNotExpression) return !((PrefixUnaryExpressionSyntax)expression).Operand.TryEvalAlternativeComparison(other, model);
-        if (other.Kind == SyntaxKind.LogicalNotExpression) return !expression.TryEvalAlternativeComparison(((PrefixUnaryExpressionSyntax)other).Operand, model);
+        if (expression is ParenthesizedExpressionSyntax) return ((ParenthesizedExpressionSyntax)expression).Expression.TryEvalAlternativeComparison(other, model, assume);
+        if (other is ParenthesizedExpressionSyntax) return expression.TryEvalAlternativeComparison(((ParenthesizedExpressionSyntax)other).Expression, model, assume);
+        if (expression.Kind == SyntaxKind.LogicalNotExpression) return !((PrefixUnaryExpressionSyntax)expression).Operand.TryEvalAlternativeComparison(other, model, assume);
+        if (other.Kind == SyntaxKind.LogicalNotExpression) return !expression.TryEvalAlternativeComparison(((PrefixUnaryExpressionSyntax)other).Operand, model, assume);
 
-        if (expression.HasSideEffects(model).IsProbablyFalse 
+        if (expression.HasSideEffects(model, assume) == false
             && expression.WithoutAnyTriviaOrInternalTrivia().ToString() == other.WithoutAnyTriviaOrInternalTrivia().ToString()) 
             return true;
         
@@ -170,7 +170,7 @@ public static class Analysis {
         // unless the collection iterator has side-effects... but that's bad form, so probably true
         if (syntax.IsGuaranteedToJumpOut(includeContinue: false)) 
             return true;
-        return syntax.Statement.IsIdempotent(model).ProbableResult;
+        return syntax.Statement.IsIdempotent(model, assume);
     }
     public static bool? IsConst(this ExpressionSyntax syntax, ISemanticModel model) {
         if (syntax is LiteralExpressionSyntax) return true;
@@ -182,16 +182,16 @@ public static class Analysis {
         }
         return null;
     }
-    public static TentativeBool IsIdempotent(this StatementSyntax syntax, ISemanticModel model) {
+    public static bool? IsIdempotent(this StatementSyntax syntax, ISemanticModel model, Assumptions assume) {
         if (syntax is EmptyStatementSyntax) return true;
         if (syntax.IsGuaranteedToJumpOut()) return true;
 
         if (syntax is BlockSyntax) {
             var b = (BlockSyntax)syntax;
             if (b.Statements.Count == 0) return true;
-            if (b.Statements.Count == 1) return b.Statements.Single().IsIdempotent(model);
-            var m = syntax.Statements().Min(e => e.IsIdempotent(model));
-            if (!m.IsProbablyTrue) return m;
+            if (b.Statements.Count == 1) return b.Statements.Single().IsIdempotent(model, assume);
+            var m = syntax.Statements().Min(e => e.IsIdempotent(model, assume));
+            if (m != true) return m;
             var assigned = syntax.DescendantNodes()
                            .Where(e => e.Kind == SyntaxKind.AssignExpression)
                            .Cast<BinaryExpressionSyntax>()
@@ -201,35 +201,37 @@ public static class Analysis {
             var reads = syntax.DescendantNodes()
                         .Except(assigned)
                         .Select(e => model.GetSymbolInfo(e));
-            if (!reads.Intersect(assignedSymbols).Any()) return TentativeBool.ProbablyTrue;
-            return TentativeBool.Unknown;
+            if (reads.Intersect(assignedSymbols).Any()) return null;
+            return true;
         }
         if (syntax is ExpressionStatementSyntax) 
-            return ((ExpressionStatementSyntax)syntax).Expression.IsIdempotent(model);
-        return TentativeBool.Unknown;
+            return ((ExpressionStatementSyntax)syntax).Expression.IsIdempotent(model, assume);
+        return null;
     }
-    public static TentativeBool IsIdempotent(this ExpressionSyntax syntax, ISemanticModel model) {
-        if (syntax is ParenthesizedExpressionSyntax) return ((ParenthesizedExpressionSyntax)syntax).Expression.IsIdempotent(model);
+    public static bool? IsIdempotent(this ExpressionSyntax syntax, ISemanticModel model, Assumptions assume) {
+        if (syntax is ParenthesizedExpressionSyntax) return ((ParenthesizedExpressionSyntax)syntax).Expression.IsIdempotent(model, assume);
         if (syntax is IdentifierNameSyntax) return true;
-        if (syntax is InvocationExpressionSyntax) return TentativeBool.Unknown;
+        if (syntax is InvocationExpressionSyntax) return null;
         if (syntax is MemberAccessExpressionSyntax) {
             var m = (MemberAccessExpressionSyntax)syntax;
-            return m.Expression.IsIdempotent(model).Min(TentativeBool.ProbablyTrue);
+            if (!assume.PropertyGettersHaveNoSideEffects) return null;
+            return m.Expression.IsIdempotent(model, assume);
         };
         if (syntax.Kind == SyntaxKind.AssignExpression) {
             var b = (BinaryExpressionSyntax)syntax;
             if (b.Left is IdentifierNameSyntax) {
-                var effects = b.Right.HasSideEffects(model);
-                if (effects.IsProbablyFalse) return effects.Inverse;
+                var effects = b.Right.HasSideEffects(model, assume);
+                if (effects == false) return true;
             }
+            return null;
         } else if (AssignmentOperatorKinds.Contains(syntax.Kind)) {
-            return TentativeBool.ProbablyFalse;
+            return null;
         }
 
         var isConst = syntax.IsConst(model);
         if (isConst == true) return true;
 
-        return TentativeBool.Unknown;
+        return null;
     }
 
     public static bool? IsFirstIterationSufficient(this ForEachStatementSyntax syntax, ISemanticModel model, Assumptions assume) {
@@ -359,6 +361,12 @@ public static class Analysis {
         return statements.Concat(tailStatements);
     }
 
+    private static bool? Max(this IEnumerable<bool?> v) {
+        return v.Aggregate((bool?)false, (a, e) => Max(a, e));
+    }
+    private static bool? Min(this IEnumerable<bool?> v) {
+        return v.Aggregate((bool?)true, (a, e) => Min(a, e));
+    }
     private static bool? Max(this bool? v1, bool? v2) {
         if (v1 == true || v2 == true) return true;
         if (v1 == null || v2 == null) return null;
@@ -369,24 +377,25 @@ public static class Analysis {
         if (v1 == null || v2 == null) return null;
         return true;
     }
-    public static TentativeBool HasSideEffects(this ExpressionSyntax expression, ISemanticModel model) {
+    public static bool? HasSideEffects(this ExpressionSyntax expression, ISemanticModel model, Assumptions assume) {
         if (expression is IdentifierNameSyntax) return false;
         if (expression is LiteralExpressionSyntax) return false;
         if (expression is DefaultExpressionSyntax) return false;
         if (expression is MemberAccessExpressionSyntax) {
             var m = (MemberAccessExpressionSyntax)expression;
-            return TentativeBool.ProbablyFalse.Max(m.Expression.HasSideEffects(model));
+            if (!assume.PropertyGettersHaveNoSideEffects) return null;
+            return m.Expression.HasSideEffects(model, assume);
         }
         if (expression is InvocationExpressionSyntax) {
             var i = (InvocationExpressionSyntax)expression;
             if (i.ArgumentList.Arguments.Any(e => e.RefOrOutKeyword != null)) return true;
-            return Enumerable.Max(i.ArgumentList.Arguments.Select(e => e.Expression.HasSideEffects(model)).Append(i.Expression.HasSideEffects(model), TentativeBool.Unknown));
+            return i.ArgumentList.Arguments.Select(e => e.Expression.HasSideEffects(model, assume)).Append(i.Expression.HasSideEffects(model, assume), null).Max();
         }
         if (expression is PostfixUnaryExpressionSyntax) {
             var u = (PostfixUnaryExpressionSyntax)expression;
             var unsafeOperators = new[] { SyntaxKind.PostDecrementExpression, SyntaxKind.PostIncrementExpression };
             if (unsafeOperators.Contains(u.Kind)) return true;
-            return TentativeBool.Unknown;
+            return null;
         }
         if (expression is PrefixUnaryExpressionSyntax) {
             var u = (PrefixUnaryExpressionSyntax)expression;
@@ -397,39 +406,47 @@ public static class Analysis {
             };
             var unsafeOperators = new[] { SyntaxKind.PreDecrementExpression, SyntaxKind.PreIncrementExpression };
             if (unsafeOperators.Contains(u.Kind)) return true;
-            var op = shouldBeSafeOperators.Contains(u.Kind) 
-                   ? TentativeBool.ProbablyFalse 
-                   : TentativeBool.Unknown;
-            return op.Max(u.Operand.HasSideEffects(model));
+            var op = assume.OperatorsHaveNoSideEffects && shouldBeSafeOperators.Contains(u.Kind)
+                   ? (bool?)false
+                   : null;
+            return op.Max(u.Operand.HasSideEffects(model, assume));
         }
         if (expression is BinaryExpressionSyntax) {
             var b = (BinaryExpressionSyntax)expression;
             if (AssignmentOperatorKinds.Contains(b.Kind)) return true;
-            var op = ProbablySafeBinaryOperators.Contains(b.Kind) 
-                   ? TentativeBool.ProbablyFalse 
-                   : TentativeBool.Unknown;
-            return Enumerable.Max(new[] { op, b.Left.HasSideEffects(model), b.Right.HasSideEffects(model) });
+            var op = assume.OperatorsHaveNoSideEffects && ProbablySafeBinaryOperators.Contains(b.Kind) 
+                   ? (bool?)false
+                   : null;
+            return new[] { op, b.Left.HasSideEffects(model, assume), b.Right.HasSideEffects(model, assume) }.Max();
         }
         if (expression is ParenthesizedExpressionSyntax) {
-            return ((ParenthesizedExpressionSyntax)expression).Expression.HasSideEffects(model);
+            return ((ParenthesizedExpressionSyntax)expression).Expression.HasSideEffects(model, assume);
         }
         if (expression is ConditionalExpressionSyntax) {
             var e = (ConditionalExpressionSyntax)expression;
-            return Enumerable.Max(new[] { e.Condition, e.WhenTrue, e.WhenFalse }.Select(x => x.HasSideEffects(model)));
+            return new[] { e.Condition, e.WhenTrue, e.WhenFalse }.Select(x => x.HasSideEffects(model, assume)).Max();
         }
-        return TentativeBool.Unknown;
+        return null;
     }
-    public static TentativeBool HasSideEffects(this StatementSyntax statement, ISemanticModel model) {
+    public static bool? HasSideEffects(this StatementSyntax statement, ISemanticModel model, Assumptions assume) {
         if (statement is EmptyStatementSyntax) return false;
         var block = statement as BlockSyntax;
         if (statement is BlockSyntax) {
             if (((BlockSyntax)statement).Statements.Count == 0) return false;
-            return Enumerable.Max(((BlockSyntax)statement).Statements.Select(e => e.HasSideEffects(model)));
+            return ((BlockSyntax)statement).Statements.Select(e => e.HasSideEffects(model, assume)).Max();
         }
         if (statement is ExpressionStatementSyntax) {
-            return ((ExpressionStatementSyntax)statement).Expression.HasSideEffects(model);
+            return ((ExpressionStatementSyntax)statement).Expression.HasSideEffects(model, assume);
         }
-        return TentativeBool.Unknown;
+        if (statement is IfStatementSyntax) {
+            var s = (IfStatementSyntax)statement;
+            return new[] { 
+                s.Condition.HasSideEffects(model, assume), 
+                s.Statement.HasSideEffects(model, assume), 
+                s.Else == null ? false : s.Else.Statement.HasSideEffects(model, assume) 
+            }.Max();
+        }
+        return null;
     }
     public static bool IsMoreThanPrivateGettable(this PropertyDeclarationSyntax syntax) {
         if (syntax.Modifiers.Any(e => e.Kind == SyntaxKind.PrivateKeyword)) return false; //property is private
@@ -587,7 +604,7 @@ public static class Analysis {
             return model.GetSymbolInfo(((LocalDeclarationStatementSyntax)syntax).Declaration.Variables.Single()).Symbol;
         return null;
     }
-    public static bool HasMatchingLHSOrRet(this StatementSyntax expression, StatementSyntax other, ISemanticModel model) {
+    public static bool HasMatchingLHSOrRet(this StatementSyntax expression, StatementSyntax other, ISemanticModel model, Assumptions assume) {
         Contract.Requires(model != null);
         if (expression == null) return false;
         if (other == null) return false;
@@ -595,7 +612,7 @@ public static class Analysis {
         var lhs1 = expression.TryGetLHSExpOfAssignmentOrInit();
         var lhs2 = other.TryGetLHSExpOfAssignmentOrInit();
         if (lhs1 == null || lhs2 == null) return false;
-        return lhs1.IsMatchingLHS(lhs2, model);
+        return lhs1.IsMatchingLHS(lhs2, model, assume);
     }
     public static ExpressionSyntax TryGetLHSExpOfAssignmentOrInit(this StatementSyntax syntax) {
          if (syntax.IsAssignment())
@@ -604,13 +621,13 @@ public static class Analysis {
             return Syntax.IdentifierName(((LocalDeclarationStatementSyntax)syntax).Declaration.Variables.Single().Identifier);
          return null;
     }
-    public static bool IsMatchingLHS(this ExpressionSyntax lhs1, ExpressionSyntax lhs2, ISemanticModel model) {
+    public static bool IsMatchingLHS(this ExpressionSyntax lhs1, ExpressionSyntax lhs2, ISemanticModel model, Assumptions assume) {
         Contract.Requires(lhs1 != null);
         Contract.Requires(lhs2 != null);
         Contract.Requires(model != null);
         
         if (lhs1.Kind != lhs2.Kind) return false;
-        if (!lhs1.HasSideEffects(model).IsProbablyFalse) return false;
+        if (lhs1.HasSideEffects(model, assume) != false) return false;
 
         if (lhs1 is SimpleNameSyntax) return ((SimpleNameSyntax)lhs1).PlainName == ((SimpleNameSyntax)lhs2).PlainName;
 
@@ -621,18 +638,18 @@ public static class Analysis {
         var inv1 = lhs1 as InvocationExpressionSyntax;
         var inv2 = lhs2 as InvocationExpressionSyntax;
         if (inv1 != null) {
-            return inv1.Expression.IsMatchingLHS(inv2.Expression, model) 
+            return inv1.Expression.IsMatchingLHS(inv2.Expression, model, assume) 
                 && inv1.ArgumentList.Arguments.Count == inv2.ArgumentList.Arguments.Count 
                 && inv1.ArgumentList.Arguments.Zip(
                         inv2.ArgumentList.Arguments, 
                         (e1, e2) => e1.NameColon == null 
-                                && e2.NameColon == null 
-                                && e1.Expression.IsMatchingLHS(e2.Expression, model)
+                                && e2.NameColon == null
+                                && e1.Expression.IsMatchingLHS(e2.Expression, model, assume)
                     ).All(e => e);
         }
         
-        if (lhs1 is MemberAccessExpressionSyntax) 
-            return ((MemberAccessExpressionSyntax)lhs1).Expression.IsMatchingLHS(((MemberAccessExpressionSyntax)lhs2).Expression, model);
+        if (lhs1 is MemberAccessExpressionSyntax)
+            return ((MemberAccessExpressionSyntax)lhs1).Expression.IsMatchingLHS(((MemberAccessExpressionSyntax)lhs2).Expression, model, assume);
         
         return false;
     }
@@ -664,10 +681,10 @@ public static class Analysis {
         ///<summary>The statement whose RHS needs to be updated.</summary>
         public StatementSyntax Base { get { return False as LocalDeclarationStatementSyntax ?? True; } }
     }
-    public static ImplicitSingleStatementBranches TryGetImplicitBranchSingleStatements(this IfStatementSyntax syntax, ISemanticModel model) {
+    public static ImplicitSingleStatementBranches TryGetImplicitBranchSingleStatements(this IfStatementSyntax syntax, ISemanticModel model, Assumptions assume) {
         return TryGetIfStatementBranches_BothSingle(syntax) 
             ?? TryGetIfStatementBranches_ConditionalJump(syntax) 
-            ?? TryGetIfStatementBranches_OverwritePrev(syntax, model);
+            ?? TryGetIfStatementBranches_OverwritePrev(syntax, model, assume);
     }
     public static ImplicitSingleStatementBranches TryGetIfStatementBranches_BothSingle(IfStatementSyntax syntax) {
         var trueAction = syntax.Statement.CollapsedStatements().SingleOrDefaultAllowMany();
@@ -689,7 +706,7 @@ public static class Analysis {
         
         return new ImplicitSingleStatementBranches(trueAction, followingAction, syntax);
     }
-    public static ImplicitSingleStatementBranches TryGetIfStatementBranches_OverwritePrev(IfStatementSyntax syntax, ISemanticModel model) {
+    public static ImplicitSingleStatementBranches TryGetIfStatementBranches_OverwritePrev(IfStatementSyntax syntax, ISemanticModel model, Assumptions assume) {
         var trueAction = syntax.Statement.CollapsedStatements().SingleOrDefaultAllowMany();
         if (trueAction == null) return null;
 
@@ -697,7 +714,7 @@ public static class Analysis {
         var prev = syntax.TryGetPrevStatement();
         if (prev == null) return null;
 
-        if (trueAction.EffectsOverwriteEffectsOf(prev, model) != true) return null;
+        if (trueAction.EffectsOverwriteEffectsOf(prev, model, assume) != true) return null;
         return new ImplicitSingleStatementBranches(trueAction, prev, prev);
     }
 
@@ -709,13 +726,13 @@ public static class Analysis {
             ?? parent.TryGetPrevStatement();
     }
     ///<summary>Determines if the effects of executing the statement with/without the given previous statement are equivalent.</summary>
-    public static bool? EffectsOverwriteEffectsOf(this StatementSyntax syntax, StatementSyntax prev, ISemanticModel model) {
+    public static bool? EffectsOverwriteEffectsOf(this StatementSyntax syntax, StatementSyntax prev, ISemanticModel model, Assumptions assume) {
         if (prev.IsGuaranteedToJumpOut()) return false;
-        if (prev.HasSideEffects(model).IsProbablyFalse) return null;
+        if (prev.HasSideEffects(model, assume) == false) return null;
 
         if (prev.IsAssignmentOrSingleInitialization()) {
             var rhs = prev.TryGetRHSOfAssignmentOrInit();
-            if (rhs.HasSideEffects(model).IsProbablyFalse && syntax.HasMatchingLHSOrRet(prev, model))
+            if (rhs.HasSideEffects(model, assume) == false && syntax.HasMatchingLHSOrRet(prev, model, assume))
                 return true;
             return null;
         }

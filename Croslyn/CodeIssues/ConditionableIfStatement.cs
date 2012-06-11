@@ -16,15 +16,16 @@ namespace Croslyn.CodeIssues {
     [ExportSyntaxNodeCodeIssueProvider("Croslyn", LanguageNames.CSharp, typeof(IfStatementSyntax))]
     internal class ConditionableIfStatement : ICodeIssueProvider {
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {
+            var assume = Assumptions.All;
+            var ifNode = (IfStatementSyntax)node;
             var model = document.GetSemanticModel();
 
             // try to get single statement branches created by the if statement's existence
-            var ifNode = (IfStatementSyntax)node;
-            var branches = ifNode.TryGetImplicitBranchSingleStatements(model);
+            var branches = ifNode.TryGetImplicitBranchSingleStatements(model, assume);
             if (branches == null) return null;
             
             // check for same LHS/ret in both branches but not in condition
-            if (!branches.True.HasMatchingLHSOrRet(branches.False, model)) return null;
+            if (!branches.True.HasMatchingLHSOrRet(branches.False, model, assume)) return null;
             var lhs = branches.True.TryGetLHSOfAssignmentOrInit(model);
             if (lhs != null) {
                 var dataFlow = model.AnalyzeExpressionDataFlow(ifNode.Condition);

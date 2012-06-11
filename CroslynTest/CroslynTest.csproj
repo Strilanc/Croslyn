@@ -61,6 +61,7 @@
     </CodeAnalysisDependentAssemblyPaths>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Analysis\TryGetImplicitBranchSingleStatementsTest.cs" />
     <Compile Include="Analysis\IsConstTest.cs" />
     <Compile Include="Analysis\IsIdempotentTest.cs" />
     <Compile Include="Analysis\IsAnIterationSufficient.cs" />

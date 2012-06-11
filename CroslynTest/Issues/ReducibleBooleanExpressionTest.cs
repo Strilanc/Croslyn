@@ -12,7 +12,7 @@ using Roslyn.Compilers;
 public class ReducibleBooleanExpressionTest {
     private void SimpleTest(string pars, string original, params string[] results) {
         TestUtil.ReplaceExpressionTest<BinaryExpressionSyntax>(
-            (e, m) => ReducibleBooleanExpression.GetSimplifications(e, m),
+            (e, m) => ReducibleBooleanExpression.GetSimplifications(e, m, Assumptions.All),
             pars,
             original,
             results);

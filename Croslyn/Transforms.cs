@@ -150,19 +150,19 @@ public static class Transforms {
         throw new NotImplementedException("Don't know how to drop given syntax node.");
     }
 
-    public static SyntaxNode RemoveStatementsWithNoEffect(this SyntaxNode root, ISemanticModel model = null) {
+    public static SyntaxNode RemoveStatementsWithNoEffect(this SyntaxNode root, Assumptions assume, ISemanticModel model) {
         return root.ReplaceNodes(root.DescendantNodesAndSelf()
                                      .OfType<StatementSyntax>()
-                                     .Where(e => e.HasSideEffects(model).IsProbablyFalse), 
+                                     .Where(e => e.HasSideEffects(model, assume) == false), 
                                  (e,a) => e.Dropped());
     }
 
-    public static StatementSyntax DropEmptyBranchesIfApplicable(this IfStatementSyntax syntax, ISemanticModel model = null) {
+    public static StatementSyntax DropEmptyBranchesIfApplicable(this IfStatementSyntax syntax, Assumptions assume, ISemanticModel model) {
         Contract.Requires(syntax != null);
 
-        var canOmitCondition = syntax.Condition.HasSideEffects(model).IsProbablyFalse;
-        var canOmitTrueBranch = syntax.Statement.HasSideEffects(model).IsProbablyFalse;
-        var canOmitFalseBranch = syntax.ElseStatementOrEmptyBlock().HasSideEffects(model).IsProbablyFalse;
+        var canOmitCondition = syntax.Condition.HasSideEffects(model, assume) == false;
+        var canOmitTrueBranch = syntax.Statement.HasSideEffects(model, assume) == false;
+        var canOmitFalseBranch = syntax.ElseStatementOrEmptyBlock().HasSideEffects(model, assume) == false;
 
         // can we get rid of the 'if' usage?
         if (canOmitTrueBranch && canOmitFalseBranch && canOmitCondition)

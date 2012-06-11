@@ -18,7 +18,7 @@ namespace Croslyn.CodeIssues {
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {
             var forLoop = (ForEachStatementSyntax)node;
             var model = document.GetSemanticModel();
-            var simplifications = GetSimplifications(forLoop, model, cancellationToken);
+            var simplifications = GetSimplifications(forLoop, model, Assumptions.All, cancellationToken);
 
             return simplifications.Select(e => new CodeIssue(
                 CodeIssue.Severity.Warning, 
@@ -27,7 +27,7 @@ namespace Croslyn.CodeIssues {
                 new[] {e.AsCodeAction(document)}));
         }
 
-        public static IEnumerable<ReplaceAction> GetSimplifications(ForEachStatementSyntax forLoop, ISemanticModel model, CancellationToken cancellationToken = default(CancellationToken)) {
+        public static IEnumerable<ReplaceAction> GetSimplifications(ForEachStatementSyntax forLoop, ISemanticModel model, Assumptions assume, CancellationToken cancellationToken = default(CancellationToken)) {
             var body = forLoop.Statement.Statements();
             if (body.None()) yield break;
 
@@ -38,8 +38,8 @@ namespace Croslyn.CodeIssues {
             var trueBranch = conditionalStatement.Statement.Statements().AppendUnlessJumps(unconditionalStatements).Block();
             var falseBranch = conditionalStatement.ElseStatementOrEmptyBlock().Statements().AppendUnlessJumps(unconditionalStatements).Block();
 
-            var falseIsEmpty = falseBranch.HasSideEffects(model).IsProbablyFalse;
-            var trueIsEmpty = trueBranch.HasSideEffects(model).IsProbablyFalse;
+            var falseIsEmpty = falseBranch.HasSideEffects(model, assume) == false;
+            var trueIsEmpty = trueBranch.HasSideEffects(model, assume) == false;
             if (falseIsEmpty == trueIsEmpty) yield break;
 
             var condition = falseIsEmpty ? conditionalStatement.Condition : conditionalStatement.Condition.Inverted();

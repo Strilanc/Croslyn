@@ -18,7 +18,7 @@ namespace Croslyn.CodeIssues {
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {
             var model = document.GetSemanticModel();
             var b = (BinaryExpressionSyntax)node;
-            var actions = GetSimplifications(b, model, cancellationToken)
+            var actions = GetSimplifications(b, model, Assumptions.All, cancellationToken)
                           .Select(e => e.AsCodeAction(document))
                           .ToArray();
             if (actions.Length == 0) yield break;
@@ -30,16 +30,16 @@ namespace Croslyn.CodeIssues {
                 actions);
         }
 
-        public static IEnumerable<ReplaceAction> GetSimplifications(BinaryExpressionSyntax b, ISemanticModel model, CancellationToken cancellationToken = default(CancellationToken)) {
+        public static IEnumerable<ReplaceAction> GetSimplifications(BinaryExpressionSyntax b, ISemanticModel model, Assumptions assume, CancellationToken cancellationToken = default(CancellationToken)) {
             if (!b.Left.DefinitelyHasBooleanType(model)) yield break;
             if (!b.Right.DefinitelyHasBooleanType(model)) yield break;
 
             // prep basic analysis
-            var leftEffects = !b.Left.HasSideEffects(model).IsProbablyFalse;
-            var rightEffects = !b.Right.HasSideEffects(model).IsProbablyFalse;
+            var leftEffects = b.Left.HasSideEffects(model, assume) != false;
+            var rightEffects = b.Right.HasSideEffects(model, assume) != false;
             var lv = b.Left.TryGetConstBoolValue();
             var rv = b.Right.TryGetConstBoolValue();
-            var cmp = b.Left.TryEvalAlternativeComparison(b.Right, model);
+            var cmp = b.Left.TryEvalAlternativeComparison(b.Right, model, assume);
 
             // prep utility funcs for adding simplifications
             var actions = new List<ReplaceAction>();

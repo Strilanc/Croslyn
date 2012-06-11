@@ -18,14 +18,14 @@ namespace Croslyn.CodeIssues {
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {
             var forLoop = (ForEachStatementSyntax)node;
             var model = document.GetSemanticModel();
-            var simplifications = GetSimplifications(forLoop, model, cancellationToken);
+            var simplifications = GetSimplifications(forLoop, model, Assumptions.All, cancellationToken);
             return simplifications.Select(e => new CodeIssue(
                 CodeIssue.Severity.Warning,
                 forLoop.ForEachKeyword.Span,
                 "For each loop body can be simplified by projecting.",
                 new[] { e.AsCodeAction(document) }));
         }
-        public static IEnumerable<ReplaceAction> GetSimplifications(ForEachStatementSyntax forLoop, ISemanticModel model, CancellationToken cancellationToken = default(CancellationToken)) {
+        public static IEnumerable<ReplaceAction> GetSimplifications(ForEachStatementSyntax forLoop, ISemanticModel model, Assumptions assume, CancellationToken cancellationToken = default(CancellationToken)) {
             // loop uses iterator once?
             var declaredSymbol = model.GetDeclaredSymbol(forLoop);
             var singleRead = forLoop.Statement.DescendantNodes()
@@ -40,10 +40,10 @@ namespace Croslyn.CodeIssues {
                              .TakeWhile(e => !(e is StatementSyntax))
                              .OfType<ExpressionSyntax>()
                              .TakeWhile(e => model.GetTypeInfo(e).Type.SpecialType != SpecialType.System_Void)
-                             .TakeWhile(e => guaranteedProjectionPerIteration == true || e.HasSideEffects(model).IsProbablyFalse)
+                             .TakeWhile(e => guaranteedProjectionPerIteration == true || e.HasSideEffects(model, assume) == false)
                              .LastOrDefault();
             if (projection == null) yield break;
-            if (projection.TryEvalAlternativeComparison(singleRead, model) == true) yield break;
+            if (projection.TryEvalAlternativeComparison(singleRead, model, assume) == true) yield break;
 
             // build replacement loop
             var projectedCollection = forLoop.Expression

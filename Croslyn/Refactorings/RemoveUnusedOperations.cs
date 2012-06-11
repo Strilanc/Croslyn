@@ -14,6 +14,8 @@ namespace Croslyn.Refactorings {
     [ExportCodeRefactoringProvider("Croslyn", LanguageNames.CSharp)]
     class RemoveUnusedOperations : ICodeRefactoringProvider {
         public CodeRefactoring GetRefactoring(IDocument document, TextSpan textSpan, CancellationToken cancellationToken) {
+            var assume = Assumptions.All;
+            var model = document.GetSemanticModel();
             var tree = (SyntaxTree)document.GetSyntaxTree(cancellationToken);
             var token = tree.GetRoot().FindToken(textSpan.Start);
 
@@ -24,7 +26,7 @@ namespace Croslyn.Refactorings {
                 "Remove Unused Operations in " + desc,
                 document,
                 token.Parent,
-                () => token.Parent.ReplaceNodes(token.Parent.DescendantNodes().OfType<IfStatementSyntax>(), (e,a) => a.DropEmptyBranchesIfApplicable()))});
+                () => token.Parent.ReplaceNodes(token.Parent.DescendantNodes().OfType<IfStatementSyntax>(), (e,a) => a.DropEmptyBranchesIfApplicable(assume, model)))});
         }
     }
 }

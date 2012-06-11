@@ -14,7 +14,7 @@ public class ForEachFilterTest {
         var tree1 = ("void f(" + pars + ") { foreach (var e in " + collection + ") { " + body + " }").ParseFunctionTreeFromString();
         var statements1 = (ForEachStatementSyntax)tree1.TestGetParsedFunctionStatements().Single();
         var model = tree1.GetTestSemanticModel();
-        Assert.IsTrue(ForEachFilter.GetSimplifications(statements1, model).Count() == 0);
+        Assert.IsTrue(ForEachFilter.GetSimplifications(statements1, model, Assumptions.All).Count() == 0);
     }
     private void AssertOptimizes(string pars, string collection, string body, string newCollection, string newBody) {
         var tree1 = ("void f(" + pars + ") { foreach (var e in " + collection + ") { " + body + " }").ParseFunctionTreeFromString();
@@ -22,7 +22,7 @@ public class ForEachFilterTest {
         var statements1 = (ForEachStatementSyntax)tree1.TestGetParsedFunctionStatements().Single();
         var statements2 = (ForEachStatementSyntax)tree2.TestGetParsedFunctionStatements().Single();
         var model = tree1.GetTestSemanticModel();
-        TestUtil.AssertSameSyntax(ForEachFilter.GetSimplifications(statements1, model).Single().NewNode, statements2);
+        TestUtil.AssertSameSyntax(ForEachFilter.GetSimplifications(statements1, model, Assumptions.All).Single().NewNode, statements2);
     }
 
     [TestMethod()]

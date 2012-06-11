@@ -144,12 +144,14 @@ public static class TestUtil {
             throw new NotImplementedException();
         }
     }
-    public static ExpressionSyntax ParseExpressionFromString(this String s) {
+    public static StatementSyntax ParseStatementFromString(this String s) {
         var p = SyntaxTree.ParseCompilationUnit(s, options: ParseOptions.Default.WithKind(SourceCodeKind.Interactive));
         var compUnit = (CompilationUnitSyntax)p.GetRoot();
         var globalStatement = (GlobalStatementSyntax)compUnit.ChildNodes().Single();
-        var expStatement = (ExpressionStatementSyntax)globalStatement.ChildNodes().Single();
-        return expStatement.Expression;
+        return (StatementSyntax)globalStatement.ChildNodes().Single();
+    }
+    public static ExpressionSyntax ParseExpressionFromString(this String s) {
+        return (s.ParseStatementFromString() as ExpressionStatementSyntax).Expression;
     }
     public static SyntaxTree ParseFunctionTreeFromString(this String s) {
         return SyntaxTree.ParseCompilationUnit(s, options: ParseOptions.Default.WithKind(SourceCodeKind.Interactive));

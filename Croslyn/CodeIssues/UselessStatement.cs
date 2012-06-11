@@ -16,13 +16,14 @@ namespace Croslyn.CodeIssues {
     [ExportSyntaxNodeCodeIssueProvider("Croslyn", LanguageNames.CSharp, typeof(StatementSyntax))]
     internal class UselessStatement : ICodeIssueProvider {
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {
+            var assume = Assumptions.All;
             var c = (StatementSyntax)node;
             if (!(c.Parent is BlockSyntax)) {
                 if (c is EmptyStatementSyntax) return null;
                 if (c is BlockSyntax && c.Statements().None()) return null;
             }
 
-            if (!c.HasSideEffects(document.TryGetSemanticModel()).IsProbablyFalse) return null;
+            if (c.HasSideEffects(document.TryGetSemanticModel(), assume) != false) return null;
             return new[] { new CodeIssue(CodeIssue.Severity.Warning, c.Span, "Statement without any effect", new[] { new ReadyCodeAction(
                 "Remove Unnecessary Statement",
                 document,

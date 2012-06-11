@@ -18,7 +18,7 @@ public class EffectsOverwriteEffectsOfTest {
                 a = 1;
             }".ParseFunctionTreeFromString();
         var statements = tree.TestGetParsedFunctionStatements();
-        Assert.IsTrue(statements[1].EffectsOverwriteEffectsOf(statements[0], tree.GetTestSemanticModel()) == true);
+        Assert.IsTrue(statements[1].EffectsOverwriteEffectsOf(statements[0], tree.GetTestSemanticModel(), Assumptions.All) == true);
     }
     [TestMethod()]
     public void AssignSameYes() {
@@ -28,7 +28,7 @@ public class EffectsOverwriteEffectsOfTest {
                 a = 1;
             }".ParseFunctionTreeFromString();
         var statements = tree.TestGetParsedFunctionStatements();
-        Assert.IsTrue(statements[1].EffectsOverwriteEffectsOf(statements[0], tree.GetTestSemanticModel()) == true);
+        Assert.IsTrue(statements[1].EffectsOverwriteEffectsOf(statements[0], tree.GetTestSemanticModel(), Assumptions.All) == true);
     }
     [TestMethod()]
     public void AssignDifNo() {
@@ -38,7 +38,7 @@ public class EffectsOverwriteEffectsOfTest {
                 b = 1;
             }".ParseFunctionTreeFromString();
         var statements = tree.TestGetParsedFunctionStatements();
-        Assert.IsTrue(statements[1].EffectsOverwriteEffectsOf(statements[0], tree.GetTestSemanticModel()) != true);
+        Assert.IsTrue(statements[1].EffectsOverwriteEffectsOf(statements[0], tree.GetTestSemanticModel(), Assumptions.All) != true);
     }
     [TestMethod()]
     public void AssignSubsetNotYes() {
@@ -48,7 +48,7 @@ public class EffectsOverwriteEffectsOfTest {
                 a = 1;
             }".ParseFunctionTreeFromString();
         var statements = tree.TestGetParsedFunctionStatements();
-        Assert.IsTrue(statements[1].EffectsOverwriteEffectsOf(statements[0], tree.GetTestSemanticModel()) != true);
+        Assert.IsTrue(statements[1].EffectsOverwriteEffectsOf(statements[0], tree.GetTestSemanticModel(), Assumptions.All) != true);
     }
     [TestMethod()]
     public void InitAssignSubsetNotYes() {
@@ -58,7 +58,7 @@ public class EffectsOverwriteEffectsOfTest {
                 a = 1;
             }".ParseFunctionTreeFromString();
         var statements = tree.TestGetParsedFunctionStatements();
-        Assert.IsTrue(statements[1].EffectsOverwriteEffectsOf(statements[0], tree.GetTestSemanticModel()) != true);
+        Assert.IsTrue(statements[1].EffectsOverwriteEffectsOf(statements[0], tree.GetTestSemanticModel(), Assumptions.All) != true);
     }
     [TestMethod()]
     public void AssignEffectUnknown() {
@@ -68,7 +68,7 @@ public class EffectsOverwriteEffectsOfTest {
                 a = 1;
             }".ParseFunctionTreeFromString();
         var statements = tree.TestGetParsedFunctionStatements();
-        Assert.IsTrue(statements[1].EffectsOverwriteEffectsOf(statements[0], tree.GetTestSemanticModel()) == null);
+        Assert.IsTrue(statements[1].EffectsOverwriteEffectsOf(statements[0], tree.GetTestSemanticModel(), Assumptions.All) == null);
     }
     [TestMethod()]
     public void JumpAssignNo() {
@@ -78,6 +78,6 @@ public class EffectsOverwriteEffectsOfTest {
                 a = 1;
             }".ParseFunctionTreeFromString();
         var statements = tree.TestGetParsedFunctionStatements();
-        Assert.IsTrue(statements[1].EffectsOverwriteEffectsOf(statements[0], tree.GetTestSemanticModel()) == false);
+        Assert.IsTrue(statements[1].EffectsOverwriteEffectsOf(statements[0], tree.GetTestSemanticModel(), Assumptions.All) == false);
     }
 }

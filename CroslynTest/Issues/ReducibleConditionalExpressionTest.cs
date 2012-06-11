@@ -12,7 +12,7 @@ using Roslyn.Compilers;
 public class ReducibleConditionalExpressionTest {
     private void SimpleTest(string pars, string original, params string[] results) {
         TestUtil.ReplaceExpressionTest<ConditionalExpressionSyntax>(
-            (e,m)=>ReducibleConditionalExpression.GetSimplifications(e,m), 
+            (e,m)=>ReducibleConditionalExpression.GetSimplifications(e,m,Assumptions.All), 
             pars, 
             original, 
             results);

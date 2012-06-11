@@ -18,7 +18,7 @@ namespace Croslyn.CodeIssues {
         public IEnumerable<CodeIssue> GetIssues(IDocument document, CommonSyntaxNode node, CancellationToken cancellationToken) {
             var model = document.GetSemanticModel();
             var ternaryNode = (ConditionalExpressionSyntax)node;
-            var actions = GetSimplifications(ternaryNode, model, cancellationToken)
+            var actions = GetSimplifications(ternaryNode, model, Assumptions.All, cancellationToken)
                           .Select(e => e.AsCodeAction(document))
                           .ToArray();
             if (actions.Length == 0) yield break;
@@ -30,9 +30,9 @@ namespace Croslyn.CodeIssues {
                 actions);
         }
 
-        public static IEnumerable<ReplaceAction> GetSimplifications(ConditionalExpressionSyntax ternaryNode, ISemanticModel model, CancellationToken cancellationToken = default(CancellationToken)) {
+        public static IEnumerable<ReplaceAction> GetSimplifications(ConditionalExpressionSyntax ternaryNode, ISemanticModel model, Assumptions assume, CancellationToken cancellationToken = default(CancellationToken)) {
             if (!ternaryNode.DefinitelyHasBooleanType(model)) yield break;
-            var whenTrueFalseCmp = ternaryNode.WhenTrue.TryEvalAlternativeComparison(ternaryNode.WhenFalse, model);
+            var whenTrueFalseCmp = ternaryNode.WhenTrue.TryEvalAlternativeComparison(ternaryNode.WhenFalse, model, assume);
 
             if (whenTrueFalseCmp == true) {
                 // (c ? b : b) --> b
@@ -43,7 +43,7 @@ namespace Croslyn.CodeIssues {
 
                 // if condition has side effects we may need to keep it
                 // (c ? b : b) --> ((c && false) || b)
-                if (!ternaryNode.Condition.HasSideEffects(model).IsProbablyFalse) {
+                if (ternaryNode.Condition.HasSideEffects(model, assume) != false) {
                     var replacement = ternaryNode.Condition
                                       .BracketedOrProtected()
                                       .BOpLogicalAnd(false.AsLiteral())
