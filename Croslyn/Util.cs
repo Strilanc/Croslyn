@@ -19,20 +19,23 @@ public static class Util {
     public static IEnumerable<T> TakeSkipPutTake<T>(this IEnumerable<T> sequence, int take, int skip, IEnumerable<T> put) {
         Contract.Requires(take >= 0);
         Contract.Requires(skip >= 0);
-        foreach (var e in sequence) {
-            if (take > 0) {
-                yield return e;
+        using (var en = sequence.GetEnumerator()) {
+            while (take > 0) {
+                if (en.MoveNext()) 
+                    yield return en.Current;
                 take -= 1;
-            } else if (skip > 0) {
-                skip -= 1;
-            } else {
-                yield return e;
             }
-
-            if (take == 0 && skip == 0 && put != null) {
-                foreach (var e2 in put)
-                    yield return e2;
-                put = null;
+            while (skip > 0) {
+                en.MoveNext();
+                skip -= 1;
+            }
+            if (put != null) {
+                foreach (var e in put) {
+                    yield return e;
+                }
+            }
+            while (en.MoveNext()) {
+                yield return en.Current;
             }
         }
     }

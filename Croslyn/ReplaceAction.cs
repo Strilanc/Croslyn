@@ -16,10 +16,12 @@ public class ReplaceAction {
     public readonly string Description;
     public readonly SyntaxNode OldNode;
     public readonly SyntaxNode NewNode;
-    public ReplaceAction(string description, SyntaxNode oldNode, SyntaxNode newNode) {
+    public readonly TextSpan? SuggestedSpan;
+    public ReplaceAction(string description, SyntaxNode oldNode, SyntaxNode newNode, TextSpan? suggestedSpan = null) {
         this.Description = description;
         this.OldNode = oldNode;
         this.NewNode = newNode;
+        this.SuggestedSpan = suggestedSpan;
     }
     public ICodeAction AsCodeAction(IDocument document) {
         return new ReadyCodeAction(Description, document, OldNode, () => NewNode);

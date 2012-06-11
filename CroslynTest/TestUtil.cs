@@ -140,6 +140,10 @@ public static class TestUtil {
             var m1 = (EqualsValueClauseSyntax)n1;
             var m2 = (EqualsValueClauseSyntax)n2;
             AssertSameSyntax(m1.Value, m2.Value);
+        } else if (n1 is PredefinedTypeSyntax) {
+            var m1 = (PredefinedTypeSyntax)n1;
+            var m2 = (PredefinedTypeSyntax)n2;
+            Assert.IsTrue(m1.PlainName == m2.PlainName);
         } else {
             throw new NotImplementedException();
         }

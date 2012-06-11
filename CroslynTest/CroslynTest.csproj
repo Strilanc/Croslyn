@@ -66,6 +66,7 @@
     <Compile Include="Analysis\IsIdempotentTest.cs" />
     <Compile Include="Analysis\IsAnIterationSufficient.cs" />
     <Compile Include="Analysis\HasSideEffectsTest.cs" />
+    <Compile Include="Issues\OverexposedLocalTest.cs" />
     <Compile Include="Issues\ForEachToFirstLastTest.cs" />
     <Compile Include="Issues\ForEachToAnyTest.cs" />
     <Compile Include="Issues\FilterSpecializeTest.cs" />

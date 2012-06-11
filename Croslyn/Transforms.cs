@@ -92,6 +92,30 @@ public static class Transforms {
                 .WithElse(e.Else == null ? Syntax.ElseClause(e.Statement) : e.Else.WithStatement(e.Statement));
     }
 
+    public static SyntaxList<T> InsertAfter<T>(this SyntaxList<T> items, T targetNode, T newNode) where T : SyntaxNode {
+        Contract.Requires(items != null);
+        Contract.Requires(newNode != null);
+        Contract.Requires(targetNode != null);
+        Contract.Requires(items.Contains(targetNode));
+        var i = items.IndexOf(targetNode);
+        return items.TakeSkipPutTake(i + 1, 0, new[] {newNode}).List();
+    }
+    public static SyntaxList<T> Replace<T>(this SyntaxList<T> items, T targetNode, T newNode) where T : SyntaxNode {
+        Contract.Requires(items != null);
+        Contract.Requires(newNode != null);
+        Contract.Requires(targetNode != null);
+        Contract.Requires(items.Contains(targetNode));
+        var i = items.IndexOf(targetNode);
+        return items.TakeSkipPutTake(i, 1, new[] { newNode }).List();
+    }
+    public static SyntaxList<T> InsertBefore<T>(this SyntaxList<T> items, T targetNode, T newNode) where T : SyntaxNode {
+        Contract.Requires(items != null);
+        Contract.Requires(newNode != null);
+        Contract.Requires(targetNode != null);
+        Contract.Requires(items.Contains(targetNode));
+        var i = items.IndexOf(targetNode);
+        return items.TakeSkipPutTake(i, 0, new[] { newNode }).List();
+    }
     public static SyntaxList<T> WithItemReplacedByMany<T>(this SyntaxList<T> items, T replacedNode, IEnumerable<T> newNodes) where T : SyntaxNode {
         Contract.Requires(items != null);
         Contract.Requires(replacedNode != null);
